@@ -1,7 +1,9 @@
 import numpy as np
 from urdfenvs.urdf_common.urdf_env import UrdfEnv
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
-from wall_obstacles import wall_obstacles
+from walls import generate_wall_obstacles
+
+from mpscenes.obstacles.box_obstacle import BoxObstacle
 
 
 def run_prius_with_walls(n_steps=10000, render=False):
@@ -23,6 +25,12 @@ def run_prius_with_walls(n_steps=10000, render=False):
     # Create the environment
     env: UrdfEnv = UrdfEnv(dt=0.01, robots=robots, render=render)
     
+    walls = generate_wall_obstacles(length=20, width=35)
+
+    # Add walls to the environment
+    for wall in walls:
+        env.add_obstacle(wall)
+    
     # Set the camera zoom level
     camera_distance = 10.0 
     camera_yaw = 180.0
@@ -31,11 +39,11 @@ def run_prius_with_walls(n_steps=10000, render=False):
     env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
 
     # Add the walls to the environment
-    for wall in wall_obstacles:
+    for wall in walls:
         env.add_obstacle(wall)
 
     # Initial position and action for the Prius
-    action = np.array([1.1, 0.1])
+    action = np.array([0, 0])
     pos0 = np.array([0.0, 8.75, 0.0])
     ob = env.reset(pos=pos0)
     print(f"Initial observation : {ob}")

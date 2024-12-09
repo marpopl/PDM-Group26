@@ -4,7 +4,7 @@ import os
 p.connect(p.GUI)
 
 #path to file relative to this file
-urdf_path = os.path.join(os.path.dirname(__file__), "static_map1.urdf")
+urdf_path = os.path.join(os.path.dirname(__file__), "map2.urdf")
 
 # Load the URDF 
 p.loadURDF(urdf_path, useFixedBase=True)
