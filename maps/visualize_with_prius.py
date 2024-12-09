@@ -1,13 +1,13 @@
 import numpy as np
-from urdfenvs.urdf_common.urdf_env import UrdfEnv
+from urdf_env import UrdfEnv
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
 from walls import generate_wall_obstacles
 
 from mpscenes.obstacles.box_obstacle import BoxObstacle
+from urdfenvs.urdf_common.helpers import add_shape
 
 
 def run_prius_with_walls(n_steps=10000, render=False):
-    # Define the Prius robot
     robots = [
         BicycleModel(
             urdf='prius.urdf',
@@ -21,7 +21,6 @@ def run_prius_with_walls(n_steps=10000, render=False):
             facing_direction='-x'
         )
     ]
-
     # Create the environment
     env: UrdfEnv = UrdfEnv(dt=0.01, robots=robots, render=render)
     

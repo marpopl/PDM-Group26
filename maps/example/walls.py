@@ -98,3 +98,6 @@ def generate_wall_obstacles(length, width, wall_height=0.8, wall_thickness=0.1, 
     
     
     
+    
+    
+    
