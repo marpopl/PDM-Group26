@@ -1,10 +1,12 @@
 import numpy as np
 from urdf_env import UrdfEnv
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
-from walls import generate_wall_obstacles
 
 from mpscenes.obstacles.box_obstacle import BoxObstacle
 from urdfenvs.urdf_common.helpers import add_shape
+
+from rectangular_environment import RectangularEnvironment
+from l_shaped_environment import LShapedEnvironment
 
 
 def run_prius_with_walls(n_steps=10000, render=False):
@@ -24,11 +26,18 @@ def run_prius_with_walls(n_steps=10000, render=False):
     # Create the environment
     env: UrdfEnv = UrdfEnv(dt=0.01, robots=robots, render=render)
     
-    walls = generate_wall_obstacles(length=20, width=35)
+    rect = RectangularEnvironment(length=65, width=25)
+    rect.generate_walls()
+    rect.generate_static_obstacle_1(position_offset=15, width_scaling=3.5, length_scaling=1.0)
+    rect.generate_static_obstacle_2(position_offset=-10, width_scaling=3.5, length_scaling=2.0)
+
+    # LShape = 
+
+    obstacles = rect.get_obstacles()
 
     # Add walls to the environment
-    for wall in walls:
-        env.add_obstacle(wall)
+    for obstacle in obstacles:
+        env.add_obstacle(obstacle)
     
     # Set the camera zoom level
     camera_distance = 10.0 
@@ -37,9 +46,6 @@ def run_prius_with_walls(n_steps=10000, render=False):
     camera_target_position = [0.0, 6.75, 0.0]
     env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
 
-    # Add the walls to the environment
-    for wall in walls:
-        env.add_obstacle(wall)
 
     # Initial position and action for the Prius
     action = np.array([0, 0])
