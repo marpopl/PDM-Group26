@@ -25,7 +25,7 @@ def calculate_feasible_steering_angle(model):
 
 
 def calculate_motion_primitives_with_model(
-    model, current_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, dt=1.0, simulation_dt=0.01
+    model, current_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, dt=1.0, simulation_dt=0.01, max_primitives=3
 ):
     """
     Calculate motion primitives using the BicycleModel instance.
@@ -50,7 +50,12 @@ def calculate_motion_primitives_with_model(
     steering_angles = [0.0, allowed_steering_angle, -allowed_steering_angle]
 
     primitives = []
+    count = 0
+
     for steering in steering_angles:
+        if count >= max_primitives:
+            break
+
         simulated_pos = current_pos.copy()
         theta = simulated_pos[2]
 
@@ -71,6 +76,7 @@ def calculate_motion_primitives_with_model(
             continue
 
         primitives.append(simulated_pos)
+        count += 1
 
     return primitives
 
@@ -114,7 +120,7 @@ def is_collision_free(state, obstacles, car_size):
 
 
 def generate_path_with_model(
-    model, start_pos, goal_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, dt=1.0
+    model, start_pos, goal_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, dt=1.0, max_primitives=3
 ):
     """
     A* path planning with motion primitives, avoiding wall collisions.
@@ -137,6 +143,11 @@ def generate_path_with_model(
             goal_tuple = current
             break
 
+        # Shortcut: check direct line to goal (straight path)
+        if is_collision_free(np.array(goal_pos), obstacles, car_size):
+            came_from[goal_tuple] = current
+            break
+
         # Generate motion primitives using internally enforced steering constraints
         primitives = calculate_motion_primitives_with_model(
             model=model,
@@ -145,13 +156,18 @@ def generate_path_with_model(
             car_size=car_size,
             velocity=velocity,
             dt=dt,
-            simulation_dt=0.01
+            simulation_dt=0.01,
+            max_primitives=max_primitives,
         )
 
         for primitive in primitives:
             primitive_tuple = tuple(primitive)
             new_cost = cost_so_far[current] + dt * velocity
             heuristic = np.linalg.norm(np.array(primitive[:2]) - goal_pos[:2])  # Euclidean heuristic
+
+            # Discard paths with high costs
+            if heuristic > 10 * dt:
+                continue
 
             if primitive_tuple not in cost_so_far or new_cost < cost_so_far[primitive_tuple]:
                 cost_so_far[primitive_tuple] = new_cost
