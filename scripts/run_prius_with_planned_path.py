@@ -1,8 +1,10 @@
 import numpy as np
-from urdfenvs.urdf_common.urdf_env import UrdfEnv
+#from urdfenvs.urdf_common.urdf_env import UrdfEnv
+from urdf_env import UrdfEnv
 from motion_primitives import generate_path_with_model, visualize_path
 from wall_obstacles import wall_obstacles
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
+from rectangular_environment import RectangularEnvironment
 import pybullet as p  # PyBullet for visualization
 
 
@@ -30,8 +32,15 @@ def run_prius_with_planned_path(render=True):
 
     # Create the environment
     env = UrdfEnv(dt=0.01, robots=robots, render=render)
-    for wall in wall_obstacles:
-        env.add_obstacle(wall)
+    rect = RectangularEnvironment(length=65, width=25)
+    rect.generate_walls()
+    rect.generate_static_obstacle_1(position_offset=-15, width_scaling=3.5, length_scaling=1.0)
+    rect.generate_static_obstacle_2(position_offset=10, width_scaling=3.5, length_scaling=1.0)
+    
+    obstacles = rect.get_obstacles()
+    for obstacle in obstacles:
+        env.add_obstacle(obstacle)
+
     print("Environment added")
 
     # Access the robot from the environment
@@ -46,8 +55,8 @@ def run_prius_with_planned_path(render=True):
     print("Camera configured")
 
     # Define the start and goal positions
-    start_pos = np.array([0.0, 7.5, 0.0])  # x, y, theta
-    goal_pos = np.array([8.0, -2.0, 0.0])  # x, y, theta
+    start_pos = np.array([0.0, 20.0, 0.0])  # x, y, theta
+    goal_pos = np.array([0.0, -20.0, 0.0])  # x, y, theta
 
     # Visualize the start and goal positions
     p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
