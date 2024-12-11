@@ -5,12 +5,31 @@ from urdfenvs.urdf_common.urdf_env import UrdfEnv
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
 from wall_obstacles import wall_obstacles
 
+# Given maximum steering angle and minimum turning radius
+max_steering_angle = 0.8727  # radians (~50 degrees)
+min_turning_radius = 0.72    # meters
+
+def calculate_feasible_steering_angle(model):
+    """
+    Compute a feasible maximum steering angle that respects both the max steering angle and
+    the minimum turning radius constraint.
+    """
+    L = model._wheel_distance
+    # Steering angle imposed by min_turning_radius:
+    # R = L / tan(delta) => tan(delta) = L / R
+    # So delta = arctan(L / min_turning_radius)
+    delta_minR = np.arctan(L / min_turning_radius)
+
+    # The actual maximum angle is the most restrictive one
+    return min(max_steering_angle, delta_minR)
+
 
 def calculate_motion_primitives_with_model(
-    model, current_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, steering_angle=np.pi / 6, dt=1.0, simulation_dt=0.01
+    model, current_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, dt=1.0, simulation_dt=0.01
 ):
     """
-    Calculate motion primitives using the BicycleModel instance, avoiding collisions based on the known map.
+    Calculate motion primitives using the BicycleModel instance.
+    This function respects internally defined max steering angle and min turning radius.
 
     Parameters:
         model (BicycleModel): The robot model.
@@ -18,24 +37,26 @@ def calculate_motion_primitives_with_model(
         obstacles (list): List of obstacle objects.
         car_size (list): [length, width] of the car for collision checking.
         velocity (float): Forward velocity (m/s).
-        steering_angle (float): Maximum steering angle (radians).
         dt (float): Duration of each motion primitive (seconds).
         simulation_dt (float): Time step duration used for simulation.
 
     Returns:
         list of np.ndarray: Valid motion primitives as [x', y', theta'].
     """
-    primitives = []
-    valid_primitives = 0  # Debug: count valid primitives
-    # Debug: print("model", model)
-    for steering in [0.0, steering_angle, -steering_angle]:  # Forward, left, right
-        # Debug: print(f"Simulating primitive with steering {steering}")
+    # Determine the allowed maximum steering angle based on constraints
+    allowed_steering_angle = calculate_feasible_steering_angle(model)
 
+    # We'll attempt three primitives: straight, left turn, right turn
+    steering_angles = [0.0, allowed_steering_angle, -allowed_steering_angle]
+
+    primitives = []
+    for steering in steering_angles:
         simulated_pos = current_pos.copy()
         theta = simulated_pos[2]
 
         # Simulate the motion
-        for _ in range(int(dt / simulation_dt)):
+        steps = int(dt / simulation_dt)
+        for _ in range(steps):
             delta_x = velocity * np.cos(theta) * simulation_dt
             delta_y = velocity * np.sin(theta) * simulation_dt
             delta_theta = (velocity / model._wheel_distance) * np.tan(steering) * simulation_dt
@@ -47,13 +68,10 @@ def calculate_motion_primitives_with_model(
 
         # Check for collisions
         if not is_collision_free(simulated_pos, obstacles, car_size):
-            # Debug: print(f"Primitive with steering {steering} collides.")
             continue
 
         primitives.append(simulated_pos)
-        valid_primitives += 1
 
-    # Debug: print(f"Valid primitives generated: {valid_primitives}")
     return primitives
 
 
@@ -66,7 +84,6 @@ def is_collision_free(state, obstacles, car_size):
 
     car_x, car_y, _ = state
     car_length, car_width = car_size
-  
 
     # Define the car's bounding box
     car_min_x = car_x - car_length / 2
@@ -97,12 +114,13 @@ def is_collision_free(state, obstacles, car_size):
 
 
 def generate_path_with_model(
-    model, start_pos, goal_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, steering_angle=np.pi / 6, dt=1.0
+    model, start_pos, goal_pos, obstacles, car_size=[0.5, 0.2], velocity=1.0, dt=1.0
 ):
     """
     A* path planning with motion primitives, avoiding wall collisions.
+    This function uses the internally computed feasible steering angle based on max_steering_angle and
+    min_turning_radius, ignoring any external steering angle settings.
     """
-    # Convert to tuples for dictionary keys
     start_tuple = tuple(start_pos)
     goal_tuple = tuple(goal_pos)
 
@@ -113,28 +131,22 @@ def generate_path_with_model(
 
     while open_set:
         _, current = heapq.heappop(open_set)
-        # Debug: print(f"Expanding node: {current}")
 
         # Check if goal is reached
-        # Using a simple threshold based on velocity * dt:
-        # You might want to adjust this condition for your scenario.
         if np.linalg.norm(np.array(current[:2]) - goal_pos[:2]) < velocity * dt:
-            # Debug: print(f"Goal reached at: {current}")
             goal_tuple = current
             break
 
-        # Generate motion primitives
+        # Generate motion primitives using internally enforced steering constraints
         primitives = calculate_motion_primitives_with_model(
             model=model,
             current_pos=np.array(current),
             obstacles=obstacles,
             car_size=car_size,
             velocity=velocity,
-            steering_angle=steering_angle,
             dt=dt,
             simulation_dt=0.01
         )
-        # Debug: print(f"Generated {len(primitives)} primitives for node {current}")
 
         for primitive in primitives:
             primitive_tuple = tuple(primitive)
@@ -155,7 +167,6 @@ def generate_path_with_model(
     # Reconstruct the path from goal to start
     path = []
     curr = goal_tuple
-    # If we never moved from start (very close to goal), handle that
     if curr == start_tuple:
         return [start_pos]
 
