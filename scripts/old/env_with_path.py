@@ -113,7 +113,7 @@ def smooth(path, resolution=100, smooth_factor=0.5):
 
     return list(zip(smoothed_x, smoothed_y))
 
-def visualize_path(grid, distance_map, a_star_path, centered_path, smoothed_path, updated_path=None):
+def visualize_path(grid, distance_map, a_star_path, centered_path, smoothed_path=None, updated_path=None):
     """
     Visualize the walls, distance map, and paths on a 2D figure.
 
@@ -228,6 +228,63 @@ def add_box_to_grid(grid, position, width, height, resolution):
     return grid
 
 
+def runner(grid_size, resolution, wall_obstacles_dicts, start, goal, visualise=False):
+    # Generate grid
+    grid = create_grid(wall_obstacles_dicts, grid_size, resolution)
+
+    planner = AStarPlanner(grid, start, goal)
+    a_star_path = planner.plan()
+
+    # Generate distance map
+    distance_map = compute_distance_transform(grid)
+
+    # Center the path
+    centered_path = center_path(a_star_path, distance_map)
+    
+    if visualise:
+        visualize_path(grid, distance_map, a_star_path, centered_path)
+
+    resolution = 100
+    smooth_factor = 1.5
+    smoothed_path = smooth(centered_path, resolution=resolution, smooth_factor=smooth_factor)
+    smoothed_path = generate_equally_spaced_path(smoothed_path, 6)
+
+    return centered_path, smoothed_path
+
+import numpy as np
+
+import numpy as np
+from scipy.interpolate import splprep, splev
+
+def generate_equally_spaced_path(path, spacing):
+    """
+    Generate a new path with equally spaced nodes along the continuous representation of the input path.
+
+    Args:
+        path (list of tuple): The original path as a list of (x, y) tuples.
+        spacing (float): The desired spacing between consecutive points in the new path.
+
+    Returns:
+        list of tuple: A new path with equally spaced nodes.
+    """
+    # Convert path to a NumPy array
+    path = np.array(path)
+    x, y = path[:, 0], path[:, 1]
+
+    # Create a continuous spline representation of the path
+    tck, u = splprep([x, y], s=0)
+    total_length = sum(np.sqrt(np.diff(x)**2 + np.diff(y)**2))
+    num_points = int(total_length / spacing) + 1
+
+    # Generate equally spaced parameter values along the spline
+    u_new = np.linspace(0, 1, num_points)
+    x_new, y_new = splev(u_new, tck)
+
+    # Combine the points into a new path
+    new_path = list(zip(x_new, y_new))
+    return new_path
+
+
 
 if __name__ == "__main__":
     # Parameters
@@ -259,16 +316,20 @@ if __name__ == "__main__":
     # Center the path
     centered_path = center_path(a_star_path, distance_map)
 
-    resolution = 1000
-    smooth_factor = 0.4
+    resolution = 100
+    smooth_factor = 1.5
     # Enforce start and end points
     updated_path = smooth(enforce_start_end(centered_path, start, goal), resolution=resolution, smooth_factor=smooth_factor)
 
     # Smooth the centered path
     smoothed_path = smooth(centered_path, resolution=resolution, smooth_factor=smooth_factor)
 
+    #print(len(smoothed_path))
+    smoothed_path = generate_equally_spaced_path(smoothed_path, 6)
+    #print(len(smoothed_path))
+    #print(smoothed_path[0])
     # Visualize or use `final_path` for controlling the vehicle
-    # Call the visualization function
+    # Call the visualization functionfunction
     visualize_path(grid, distance_map, a_star_path, centered_path, smoothed_path, updated_path)
 
 

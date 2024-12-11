@@ -163,3 +163,5 @@ cython_debug/
 
 gym_envs_urdf
 gym-pybullet-drones
+scripts/working_file.py
+scripts/test.py
