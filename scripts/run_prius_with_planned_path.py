@@ -60,7 +60,7 @@ def run_prius_with_planned_path(render=True):
         start_pos=start_pos,
         goal_pos=goal_pos,
         obstacles=wall_obstacles,
-        car_size=[2.3, 0.9],
+        car_size=[2.86, 0.9],
         velocity=1.0,
         dt=1.0
     )
