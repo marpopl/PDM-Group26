@@ -7,6 +7,10 @@ import pybullet as p  # PyBullet for visualization
 
 
 def run_prius_with_planned_path(render=True):
+    # Define max steering angle and min turning radius
+    max_steering_angle = 0.8727  # ~50 degrees
+    min_turning_radius = 0.72    # meters
+
     # Define the Prius robot
     robots = [
         BicycleModel(
@@ -43,7 +47,7 @@ def run_prius_with_planned_path(render=True):
 
     # Define the start and goal positions
     start_pos = np.array([0.0, 7.5, 0.0])  # x, y, theta
-    goal_pos = np.array([8.0, -2.0, 0.0])   # x, y, theta
+    goal_pos = np.array([8.0, -2.0, 0.0])  # x, y, theta
 
     # Visualize the start and goal positions
     p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
@@ -56,10 +60,9 @@ def run_prius_with_planned_path(render=True):
         start_pos=start_pos,
         goal_pos=goal_pos,
         obstacles=wall_obstacles,
-        car_size=[1.0, 0.65],
+        car_size=[2.3, 0.9],
         velocity=1.0,
-        steering_angle=np.pi / 6,
-        dt=1.0,
+        dt=1.0
     )
 
     if not path:
@@ -82,19 +85,30 @@ def run_prius_with_planned_path(render=True):
     # Reset the environment and robot position
     env.reset(pos=start_pos)
 
-    # Drive the robot along the planned path
+    # Compute the allowed steering angle at runtime
+    L = robot._wheel_distance
+    delta_minR = np.arctan(L / min_turning_radius)
+    allowed_steering_angle = min(max_steering_angle, delta_minR)
+
+ # Drive the robot along the planned path
     print("Following the planned path...")
     for target in path:
         target_x, target_y, _ = target
-        for _ in range(int(1.0 / env.dt)):  # Move towards each waypoint
-            current_state = robot.state["joint_state"]["position"]
-            current_x, current_y, current_theta = current_state
+        # Move towards each waypoint for up to 1 second (1.0 / env.dt steps)
+        for _ in range(int(1.0 / env.dt)):
+            # Update the robot's internal state
+            robot.update_state()
 
-            # Calculate the steering angle to the target
+            # Directly read the current position from robot.state
+            current_state = robot.state
+            current_x, current_y, current_theta = current_state["joint_state"]["position"]
+
             angle_to_target = np.arctan2(target_y - current_y, target_x - current_x)
-            steering_angle = np.clip(angle_to_target - current_theta, -np.pi / 6, np.pi / 6)
+            steering_angle = np.clip(angle_to_target - current_theta,
+                                     -allowed_steering_angle, allowed_steering_angle)
 
-            # Drive the car
+            # Pass the action directly to env.step()
+            # This will internally apply_velocity_action on the robot
             action = np.array([1.0, steering_angle])
             env.step(action)
 
@@ -104,7 +118,6 @@ def run_prius_with_planned_path(render=True):
 
     print("Path followed successfully!")
     env.close()
-
 
 if __name__ == "__main__":
     run_prius_with_planned_path()
