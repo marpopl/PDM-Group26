@@ -18,7 +18,7 @@ from urdfenvs.urdf_common.generic_robot import GenericRobot
 from urdfenvs.urdf_common.reward import Reward
 from urdfenvs.urdf_common.helpers import add_shape, get_transformation_matrix, matrix_to_quaternion
 
-from custom_plane import CustomPlane
+from helper_files.custom_plane import CustomPlane
 
 class WrongObservationError(Exception):
     pass

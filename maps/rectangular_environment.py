@@ -1,4 +1,8 @@
 from mpscenes.obstacles.box_obstacle import BoxObstacle
+from mpscenes.obstacles.urdf_obstacle import UrdfObstacle
+from mpscenes.obstacles.dynamic_cylinder_obstacle import DynamicCylinderObstacle
+import os
+import numpy as np
 
 class RectangularEnvironment:
     def __init__(self, length, width, wall_height=0.8, wall_thickness=0.1, elevation=0.0, scaling=1.0):
@@ -195,6 +199,51 @@ class RectangularEnvironment:
         self.obstacles.append(static_obstacle_1)
         
         print('Generated Static Obstacle 2')
+
+
+    def generate_dynamic_obstacle(self, position_offset=-5, radius=0.5, height=1, frequency=3, speed_scaling=3):
+        
+        h = height/2
+
+        base_duration = 10
+        duration = (base_duration * frequency) / speed_scaling
+
+        # Define the left and right positions
+        left_position = [-(self.length / 2) + 2 * radius, position_offset, h]
+        right_position = [(self.length / 2) - 2 * radius, position_offset, h]
+
+        control_points = []
+
+        for i in range(frequency): 
+            if i % 2 == 0:
+                control_points.append(left_position)  # Add left point
+            else:
+                control_points.append(right_position)  # Add right point
+
+        if frequency % 2 == 0:
+            control_points.append(left_position)
+        else:
+            control_points.append(right_position)
+
+
+
+        splineDict = {"degree": 1,
+                    "controlPoints": control_points,
+                    "duration": duration}
+        
+        config_dict={
+            "type": "cylinder",
+            "geometry": {
+                "trajectory": splineDict,
+                "radius": radius,
+                "height": height},
+            "movable": False,
+            "rgba": [1.0, 0.0, 0.0, 1.0]}
+        
+        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder",  content_dict=config_dict)
+
+        self.obstacles.append(dynamic_cylinder)
+
 
     def get_obstacles(self):
         return self.obstacles

@@ -1,5 +1,5 @@
 import numpy as np
-from urdf_env import UrdfEnv
+from helper_files.urdf_env import UrdfEnv
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
 
 from mpscenes.obstacles.box_obstacle import BoxObstacle
@@ -26,10 +26,11 @@ def run_prius_with_walls(n_steps=10000, render=False):
     # Create the environment
     env: UrdfEnv = UrdfEnv(dt=0.01, robots=robots, render=render)
     
-    rect = RectangularEnvironment(length=65, width=25)
+    rect = RectangularEnvironment(length=65, width=15)
     rect.generate_walls()
-    rect.generate_static_obstacle_1(position_offset=15, width_scaling=3.5, length_scaling=1.0)
-    rect.generate_static_obstacle_2(position_offset=-10, width_scaling=3.5, length_scaling=2.0)
+    rect.generate_static_obstacle_1(position_offset=5, width_scaling=1.5, length_scaling=1.0)
+    rect.generate_static_obstacle_2(position_offset=-15, width_scaling=1.5, length_scaling=2.0)
+    rect.generate_dynamic_obstacle(position_offset=-5, radius=0.5, height=1, frequency=3, speed_scaling=1)
 
     # LShape = 
 
