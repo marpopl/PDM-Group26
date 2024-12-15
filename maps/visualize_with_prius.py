@@ -26,15 +26,19 @@ def run_prius_with_walls(n_steps=10000, render=False):
     # Create the environment
     env: UrdfEnv = UrdfEnv(dt=0.01, robots=robots, render=render)
     
-    rect = RectangularEnvironment(length=65, width=15)
-    rect.generate_walls()
-    rect.generate_static_obstacle_1(position_offset=5, width_scaling=1.5, length_scaling=1.0)
-    rect.generate_static_obstacle_2(position_offset=-15, width_scaling=1.5, length_scaling=2.0)
-    rect.generate_dynamic_obstacle(position_offset=-5, radius=0.5, height=1, frequency=3, speed_scaling=1)
+    # rect = RectangularEnvironment(length=65, width=15)
+    # rect.generate_walls()
+    # rect.generate_static_obstacle_1(position_offset=5, width_scaling=1.5, length_scaling=1.0)
+    # rect.generate_static_obstacle_2(position_offset=-15, width_scaling=1.5, length_scaling=2.0)
+    # rect.generate_dynamic_obstacle(position_offset=-5, radius=0.5, height=1, frequency=3, speed_scaling=1)
 
-    # LShape = 
-
-    obstacles = rect.get_obstacles()
+    LShape = LShapedEnvironment(first_part_lenght=50, second_part_lenght=30, width=15)
+    LShape.generate_walls()
+    LShape.generate_static_obstacle_1_left()
+    LShape.generate_static_obstacle_1_right()
+    LShape.generate_static_obstacle_2_left()
+    LShape.generate_static_obstacle_2_right()
+    obstacles = LShape.get_obstacles()
 
     # Add walls to the environment
     for obstacle in obstacles:
