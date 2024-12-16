@@ -1,7 +1,7 @@
 import numpy as np
 #from urdfenvs.urdf_common.urdf_env import UrdfEnv
 from urdf_env import UrdfEnv
-from motion_primitives import generate_path_with_model, visualize_path
+from motion_primitives import generate_path, visualize_path
 from wall_obstacles import wall_obstacles
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
 from rectangular_environment import RectangularEnvironment
@@ -64,26 +64,43 @@ def run_prius_with_planned_path(render=True):
 
     # Generate the path using motion primitives
     print("Generating path...")
-    path = generate_path_with_model(
+    path, _ = generate_path(
         model=robot,
         start_pos=start_pos,
         goal_pos=goal_pos,
-        obstacles=wall_obstacles,
+        obstacles=obstacles,
         car_size=[2.86, 0.9],
         velocity=1.0,
-        dt=1.0
+        max_depth=5
     )
 
     if not path:
         print("Path generation failed.")
         env.close()
         return
+    
+    # Clean invalid nodes from path
+    path = [node for node in path if isinstance(node, (list, tuple)) and len(node) >= 2]
+
+    if not path:
+        print("Error: Path contains no valid nodes after filtering!")
+        return
+    
+    # Proceed with using path
+    for i in range(len(path)):
+        position = [path[i][0], path[i][1], 0.1]
+        print(f"Setting position: {position}")
 
     print("Path generated successfully.")
     visualize_path(start_pos, goal_pos, path)
 
     # Visualize the planned path in the environment
     for i in range(len(path) - 1):
+        if len(path[i]) >= 2:  # Ensure the node has at least x and y
+            position = [path[i][0], path[i][1], 0.1]
+            print(f"Setting position: {position}")
+        else:
+            print(f"Invalid node at index {i}: {path[i]}")
         p.addUserDebugLine(
             [path[i][0], path[i][1], 0.1],
             [path[i + 1][0], path[i + 1][1], 0.1],
