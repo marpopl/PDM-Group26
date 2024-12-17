@@ -1,4 +1,8 @@
 from mpscenes.obstacles.box_obstacle import BoxObstacle
+from mpscenes.obstacles.dynamic_cylinder_obstacle import DynamicCylinderObstacle
+import os
+import numpy as np
+
 
 class LShapedEnvironment:
     def __init__(self, first_part_lenght, second_part_lenght, width, wall_height=0.8, wall_thickness=0.1, elevation=0.0, scaling=1.0):
@@ -176,7 +180,92 @@ class LShapedEnvironment:
         
         print('Generated Static Obstacle 3')
 
+    def generate_dynamic_obstacle_1(self, position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3):
+        
+        h = height/2
 
+        base_duration = 10
+        duration = (base_duration * frequency) / speed_scaling
+
+        # Define the left and right positions
+        left_position = [radius, position_offset, h]
+        right_position = [ self.width - radius, position_offset, h]
+
+        control_points = []
+
+        for i in range(frequency): 
+            if i % 2 == 0:
+                control_points.append(left_position)  # Add left point
+            else:
+                control_points.append(right_position)  # Add right point
+
+        if frequency % 2 == 0:
+            control_points.append(left_position)
+        else:
+            control_points.append(right_position)
+
+
+
+        splineDict = {"degree": 1,
+                    "controlPoints": control_points,
+                    "duration": duration}
+        
+        config_dict={
+            "type": "cylinder",
+            "geometry": {
+                "trajectory": splineDict,
+                "radius": radius,
+                "height": height},
+            "movable": False,
+            "rgba": [1.0, 0.0, 0.0, 1.0]}
+        
+        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder",  content_dict=config_dict)
+
+        self.obstacles.append(dynamic_cylinder)
+
+
+    def generate_dynamic_obstacle_2(self, position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3):
+        
+        h = height/2
+
+        base_duration = 10
+        duration = (base_duration * frequency) / speed_scaling
+
+        # Define the left and right positions
+        left_position = [position_offset, -(self.width- radius),h]
+        right_position = [position_offset,- radius, h]
+
+        control_points = []
+
+        for i in range(frequency): 
+            if i % 2 == 0:
+                control_points.append(left_position)  # Add left point
+            else:
+                control_points.append(right_position)  # Add right point
+
+        if frequency % 2 == 0:
+            control_points.append(left_position)
+        else:
+            control_points.append(right_position)
+
+
+
+        splineDict = {"degree": 1,
+                    "controlPoints": control_points,
+                    "duration": duration}
+        
+        config_dict={
+            "type": "cylinder",
+            "geometry": {
+                "trajectory": splineDict,
+                "radius": radius,
+                "height": height},
+            "movable": False,
+            "rgba": [1.0, 0.0, 0.0, 1.0]}
+        
+        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder",  content_dict=config_dict)
+
+        self.obstacles.append(dynamic_cylinder)
 
     def get_obstacles(self):
         return self.obstacles
