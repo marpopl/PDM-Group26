@@ -5,7 +5,7 @@ wall_length_outer = 20
 wall_length_inner = 15
 
 # Double the distance between the inner and outer walls
-gap_multiplier = 2
+gap_multiplier = 5
 adjusted_wall_length_inner = wall_length_outer - (wall_length_outer - wall_length_inner) * gap_multiplier
 
 # Wall obstacle definitions

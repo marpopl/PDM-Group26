@@ -27,7 +27,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
     camera_distance = 10.0 
     camera_yaw = 180.0
     camera_pitch = -30.0
-    camera_target_position = [0.0, 6.75, 0.0]
+    camera_target_position = [0.0, 6.75, 0.0]  #0, 6.75, 0.0
     env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
 
     # Add the walls to the environment
@@ -36,7 +36,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
 
     # Initial position and action for the Prius
     action = np.array([1.1, 0.1])
-    pos0 = np.array([0.0, 8.75, 0.0])
+    pos0 = np.array([0.0, 7.5, 0.0]) # 0.0, 8.75, 0.0,
     ob = env.reset(pos=pos0)
     print(f"Initial observation : {ob}")
 
