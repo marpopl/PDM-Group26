@@ -21,7 +21,7 @@ def run_prius_with_planned_path(render=True):
             actuated_wheels=['front_right_wheel_joint', 'front_left_wheel_joint',
                              'rear_right_wheel_joint', 'rear_left_wheel_joint'],
             steering_links=['front_right_steer_joint', 'front_left_steer_joint'],
-            facing_direction='-x'
+            facing_direction='x'
         )
     ]
 
@@ -47,7 +47,7 @@ def run_prius_with_planned_path(render=True):
 
     # set start and goal pose
     start_pos = np.array([0.0, 20.0, 0.0])
-    goal_pos = np.array([0.0, -20.0, 0.0])
+    goal_pos = np.array([0.0, 0.0, 0.0])
 
     # Visualize the start and goal positions
     p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
@@ -77,14 +77,34 @@ def run_prius_with_planned_path(render=True):
 
     env.reset(pos=start_pos)
 
+    # # Add coordinate axes at the origin
+    # length = 4.0  # Length of each axis
+    # p.addUserDebugLine([0, 0, 0], [length, 0, 0], [1, 0, 0], lineWidth=3, lifeTime=0)  # X-axis (Red)
+    # p.addUserDebugLine([0, 0, 0], [0, length, 0], [0, 1, 0], lineWidth=3, lifeTime=0)  # Y-axis (Green)
+    # p.addUserDebugLine([0, 0, 0], [0, 0, length], [0, 0, 1], lineWidth=3, lifeTime=0)  # Z-axis (Blue)
+
+
     # Follow the precomputed path
     print("Following the planned path...")
     print('len(controls)', len(controls))
+
+    # Plot the final trajectory in the environment using PyBullet debug lines
+    for i in range(len(final_path) - 1):
+        p.addUserDebugLine(
+            [final_path[i][0], final_path[i][1], 0.1],  # Start point
+            [final_path[i + 1][0], final_path[i + 1][1], 0.1],  # End point
+            lineColorRGB=[0, 0, 1],  # Blue lines
+            lineWidth=2
+        )
+
+    print("Following the precomputed path...")
+    print("env.dt", env.dt)
     for control in controls:
         velocity, steering_angle = control
-        for _ in range(int(1.0 / env.dt)):
-            env.step(np.array([velocity, steering_angle]))
-            robot.update_state()
+        print("steering_angle", steering_angle)
+        #print("velocity", velocity)
+        action = np.array([velocity, steering_angle])
+        env.step(action)
 
     print("Path followed successfully!")
     env.close()
