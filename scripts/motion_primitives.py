@@ -1,16 +1,16 @@
+import heapq
 import numpy as np
 import matplotlib.pyplot as plt
-import heapq
 
-# Constants
-max_steering_angle = 0.8727  # ~50 degrees
-min_turning_radius = 0.72    # meters
+max_steering_angle = 0.8727
+min_turning_radius = 0.72
 
-def is_collision_free(state, obstacles, car_size, safety_margin=1.0):
+def is_collision_free(state, obstacles, car_size):
     car_x, car_y, _ = state
     car_length, car_width = car_size
+    safety_margin = 1.0
 
-    # Expand the car's bounding box by the safety margin on all sides
+    # Adjust car boundaries with safety margin
     car_min_x = car_x - car_length / 2 - safety_margin
     car_max_x = car_x + car_length / 2 + safety_margin
     car_min_y = car_y - car_width / 2 - safety_margin
@@ -21,22 +21,18 @@ def is_collision_free(state, obstacles, car_size, safety_margin=1.0):
         obs_width = obstacle.width()
         obs_length = obstacle.length()
 
-        # We can also consider adding a margin for obstacles if desired, but here
-        # we only expand the car size. To add margin to obstacles, similarly
-        # extend their bounding box.
-        obs_min_x = obs_x - obs_length / 2
-        obs_max_x = obs_x + obs_length / 2
-        obs_min_y = obs_y - obs_width / 2
-        obs_max_y = obs_y + obs_width / 2
+        # Adjust obstacle boundaries with safety margin
+        obs_min_x = obs_x - obs_length / 2 - safety_margin
+        obs_max_x = obs_x + obs_length / 2 + safety_margin
+        obs_min_y = obs_y - obs_width / 2 - safety_margin
+        obs_max_y = obs_y + obs_width / 2 + safety_margin
 
         if (
             car_min_x < obs_max_x and car_max_x > obs_min_x and
             car_min_y < obs_max_y and car_max_y > obs_min_y
         ):
-            # Collision (or near-collision) detected within safety margin
             return False
     return True
-
 
 def expand_motion_primitives(model, current_pos, obstacles, car_size, velocity=1.0, dt=1.0, simulation_dt=0.01, max_depth=3):
     # Allowed steering angle for correct turning radius
@@ -157,7 +153,6 @@ def generate_path_with_model(model, start_pos, goal_pos, obstacles, car_size, ve
     all_expanded_states = [state for traj in trajectories.values() for state in traj]
 
     return final_trajectory, final_control_trajectory, all_expanded_states
-
 def visualize_motion_primitives(start_pos, goal_pos, states):
     plt.figure(figsize=(10, 10))
     plt.plot(start_pos[0], start_pos[1], "go", label="Start")
@@ -186,11 +181,10 @@ def visualize_motion_primitives_grid(start_pos, goal_pos, expanded_states):
     expanded_x = []
     expanded_y = []
     for state in expanded_states:
-        if isinstance(state, (list, np.ndarray)) and len(state) >= 2:
-            expanded_x.append(state[0])
-            expanded_y.append(state[1])
+        expanded_x.append(state[0])
+        expanded_y.append(state[1])
     
-    plt.plot(expanded_x, expanded_y, 'b.', markersize=3, label="Motion Primitives")
+    plt.plot(expanded_x, expanded_y, 'bo', markersize=3, label="Motion Primitives")
     plt.legend()
     plt.show()
 
@@ -198,9 +192,6 @@ def visualize_path(start_pos, goal_pos, path):
     plt.figure(figsize=(10, 10))
     plt.plot(start_pos[0], start_pos[1], "go", label="Start")
     plt.plot(goal_pos[0], goal_pos[1], "ro", label="Goal")
-    path_x = [node[0] for node in path]
-    path_y = [node[1] for node in path]
-    plt.plot(path_x, path_y, "b-", label="Path", linewidth=2)
     for node in path:
         plt.plot(node[0], node[1], "bo", markersize=3)
     plt.xlabel("X")
