@@ -219,7 +219,7 @@ class LShapedEnvironment:
             "movable": False,
             "rgba": [1.0, 0.0, 0.0, 1.0]}
         
-        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder",  content_dict=config_dict)
+        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
 
         self.obstacles.append(dynamic_cylinder)
 
@@ -263,7 +263,7 @@ class LShapedEnvironment:
             "movable": False,
             "rgba": [1.0, 0.0, 0.0, 1.0]}
         
-        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder",  content_dict=config_dict)
+        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
 
         self.obstacles.append(dynamic_cylinder)
 

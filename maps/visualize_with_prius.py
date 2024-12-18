@@ -37,12 +37,12 @@ def run_prius_with_walls(n_steps=10000, render=False):
 
     LShape = LShapedEnvironment(first_part_lenght=50, second_part_lenght=40, width=15)
     LShape.generate_walls()
-    LShape.generate_static_obstacle_1_left() # position_offset=15, width_scaling=1.0, length_scaling=1.0
-    LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
-    LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-    LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-    LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
-    LShape.generate_dynamic_obstacle_2() # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+    LShape.generate_static_obstacle_1_left(position_offset=25, width_scaling=1.0, length_scaling=1.0) # position_offset=15, width_scaling=1.0, length_scaling=1.0
+    #LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
+    #LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+    #LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+    # LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+    LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=3) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
     obstacles = LShape.get_obstacles()
 
     # Add walls to the environment
