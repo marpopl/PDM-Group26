@@ -4,6 +4,43 @@ from motion_primitives import generate_path_with_model, visualize_path, expand_m
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
 from rectangular_environment import RectangularEnvironment
 import pybullet as p
+import time
+
+class PIDController:
+    def __init__(self, Kp, Ki, Kd, setpoint=0.0, output_limits=(None, None)):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.setpoint = setpoint
+        self._prev_error = 0.0
+        self._integral = 0.0
+        self.output_limits = output_limits
+
+    def reset(self):
+        self._prev_error = 0.0
+        self._integral = 0.0
+
+    def __call__(self, measurement, dt):
+        error = self.setpoint - measurement
+        self._integral += error * dt
+        derivative = (error - self._prev_error) / dt if dt > 0 else 0.0
+        output = self.Kp * error + self.Ki * self._integral + self.Kd * derivative
+        self._prev_error = error
+
+        # Clamp output to output limits
+        low, high = self.output_limits
+        if low is not None:
+            output = max(low, output)
+        if high is not None:
+            output = min(high, output)
+
+        return output
+
+
+def closest_point_on_path(car_pos, path):
+    """Find the index of the closest point in the path to the current car position."""
+    distances = [np.linalg.norm(np.array(car_pos[:2]) - np.array(pt[:2])) for pt in path]
+    return np.argmin(distances)
 
 
 def run_prius_with_planned_path(render=True):
@@ -47,15 +84,13 @@ def run_prius_with_planned_path(render=True):
 
     # set start and goal pose
     start_pos = np.array([0.0, 20.0, 0.0])
-    goal_pos = np.array([0.0, 0.0, 0.0])
+    goal_pos = np.array([0.0, -20.0, 0.0])
 
     # Visualize the start and goal positions
     p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
     p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
-
-
-   # Generate the path
+    # Generate the path (this gives final_path and controls)
     final_path, controls, all_expanded_states = generate_path_with_model(
         model=robot,
         start_pos=start_pos,
@@ -77,36 +112,65 @@ def run_prius_with_planned_path(render=True):
 
     env.reset(pos=start_pos)
 
-    # # Add coordinate axes at the origin
-    # length = 4.0  # Length of each axis
-    # p.addUserDebugLine([0, 0, 0], [length, 0, 0], [1, 0, 0], lineWidth=3, lifeTime=0)  # X-axis (Red)
-    # p.addUserDebugLine([0, 0, 0], [0, length, 0], [0, 1, 0], lineWidth=3, lifeTime=0)  # Y-axis (Green)
-    # p.addUserDebugLine([0, 0, 0], [0, 0, length], [0, 0, 1], lineWidth=3, lifeTime=0)  # Z-axis (Blue)
-
-
-    # Follow the precomputed path
-    print("Following the planned path...")
-    print('len(controls)', len(controls))
-
-    # Plot the final trajectory in the environment using PyBullet debug lines
+    # Draw the final trajectory as debug lines
     for i in range(len(final_path) - 1):
         p.addUserDebugLine(
-            [final_path[i][0], final_path[i][1], 0.1],  # Start point
-            [final_path[i + 1][0], final_path[i + 1][1], 0.1],  # End point
-            lineColorRGB=[0, 0, 1],  # Blue lines
+            [final_path[i][0], final_path[i][1], 0.1],
+            [final_path[i+1][0], final_path[i+1][1], 0.1],
+            lineColorRGB=[0, 0, 1],
             lineWidth=2
         )
 
-    print("Following the precomputed path...")
-    print("env.dt", env.dt)
-    for control in controls:
-        velocity, steering_angle = control
-        print("steering_angle", steering_angle)
-        #print("velocity", velocity)
+    print("Following the planned path with PID controller...")
+
+    # PID Controller setup
+    # We will control steering based on heading error.
+    # For simplicity, we assume the car tries to face towards the next waypoint.
+    # Adjust Kp, Ki, Kd to achieve better performance.
+    Kp, Ki, Kd = 1.0, 0.0, 0.1
+    steering_pid = PIDController(Kp=Kp, Ki=Ki, Kd=Kd, output_limits=(-max_steering_angle, max_steering_angle))
+
+    # We'll run until we reach near the goal or exceed a time limit
+    time_steps = 0
+    max_steps = 10000
+    reached_goal_threshold = 1.0
+    look_ahead_indices = 5  # how far ahead to look on the path
+
+    dt = env.dt
+    while time_steps < max_steps:
+        # Update robot state to get current position and orientation
+        robot.update_state()
+        car_x, car_y, car_theta = robot.state["joint_state"]["position"]
+
+        # Check if we are close to the goal
+        dist_to_goal = np.linalg.norm([car_x - goal_pos[0], car_y - goal_pos[1]])
+        if dist_to_goal < reached_goal_threshold:
+            print("Reached goal!")
+            break
+
+        # Find a target point ahead on the path
+        closest_idx = closest_point_on_path([car_x, car_y, car_theta], final_path)
+        target_idx = min(closest_idx + look_ahead_indices, len(final_path)-1)
+        target_x, target_y = final_path[target_idx][0], final_path[target_idx][1]
+
+        # Compute heading error
+        angle_to_target = np.arctan2(target_y - car_y, target_x - car_x)
+        heading_error = angle_to_target - car_theta
+        # Normalize heading error to [-pi, pi]
+        heading_error = (heading_error + np.pi) % (2*np.pi) - np.pi
+
+        # Compute the steering angle using PID
+        steering_angle = steering_pid(heading_error, dt)
+
+        # Set constant forward velocity
+        velocity = 1.0
+
         action = np.array([velocity, steering_angle])
         env.step(action)
 
-    print("Path followed successfully!")
+        time_steps += 1
+
+    print("Path followed successfully with PID controller!")
     env.close()
 
 
