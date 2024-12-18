@@ -1,9 +1,12 @@
 import numpy as np
-from maps.urdf_env import UrdfEnv
-from urdfenvs.urdf_common.bicycle_model import BicycleModel
-from maps.rectangular_environment import RectangularEnvironment
 import pybullet as p
-from working_global.global_planner import runner
+from global_planner import runner
+from urdfenvs.urdf_common.bicycle_model import BicycleModel
+
+from helper_files.urdf_env import UrdfEnv
+from rectangular_environment import RectangularEnvironment
+from l_shaped_environment import LShapedEnvironment
+
 
 def calculate_heading(position, previous_position=None, velocity=None):
     """
@@ -74,19 +77,37 @@ def run_prius_with_walls(n_steps=10000, render=False):
 
     # Create the environment
     env = UrdfEnv(dt=0.01, robots=robots, render=render)
-    rect = RectangularEnvironment(length=65, width=25)
-    rect.generate_walls()
-    rect.generate_static_obstacle_1(position_offset=-10, width_scaling=3.5, length_scaling=1.0)
-    rect.generate_static_obstacle_2(position_offset=10, width_scaling=3.5, length_scaling=1.0)
+    # rect = RectangularEnvironment(length=65, width=25)
+    # rect.generate_walls()
+    # rect.generate_static_obstacle_1(position_offset=-10, width_scaling=3.5, length_scaling=1.0)
+    # rect.generate_static_obstacle_2(position_offset=10, width_scaling=3.5, length_scaling=1.0)
     
-    obstacles = rect.get_obstacles()
+
+    fpl, spl, w = 50,40,15
+    LShape = LShapedEnvironment(first_part_lenght=fpl, second_part_lenght=spl, width=w)
+    LShape.generate_walls()
+    LShape.generate_static_obstacle_1_left(position_offset=25, width_scaling=1.0, length_scaling=1.0) # position_offset=15, width_scaling=1.0, length_scaling=1.0
+    LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
+    LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+    LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+    LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+    LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=3) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+    obstacles = LShape.get_obstacles()
+
+
+    obstacles = LShape.get_obstacles()
     for obstacle in obstacles:
         env.add_obstacle(obstacle)
     print("Environment added")
 
     # Define the start and goal positions
-    start_pos = np.array([0.0, 24.0, 0.0])  # x, y
-    goal_pos = np.array([0.0, -20.0, 0.0])  # x, y
+    # Rect
+    # start_pos = np.array([0.0, 24.0, 0.0])  # x, y
+    # goal_pos = np.array([0.0, -20.0, 0.0])  # x, y
+
+    start_pos = np.array([(w/2),(fpl-w),0])
+    goal_pos = np.array([(-(spl-w)),(-w/2),0])
+
 
     # "a_star","centered"&"smooth" are working, True/False is for the visualizations
     heuristic_points_2D= runner(start_pos,goal_pos,obstacles, region=5, path='smooth',visualise=True)

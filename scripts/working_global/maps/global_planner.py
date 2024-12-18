@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from maps.rectangular_environment import RectangularEnvironment
+from rectangular_environment import RectangularEnvironment
 from scipy.ndimage import distance_transform_edt
 import heapq
 from scipy.interpolate import interp1d
@@ -199,39 +199,43 @@ class GridCreator:
         center_y = grid_height // 2
 
         for obstacle in obstacles:
-            # Get obstacle properties
-            pos = np.round(obstacle.position() / self.resolution).astype(int)  # Call the position method
-            length = obstacle.width() / self.resolution
-            width = obstacle.length() / self.resolution
-
-            # print(pos)
-            # print(type(pos))
-
-            if width == 0 or length == 0:
-                print(f"Skipping obstacle with zero width or length: {obstacle}")
+            if 'dynamic' in obstacle._name:
+                print("Skipping dynamic obstacle: ", obstacle._name)
                 continue
-
-            # Adjust position to be relative to the grid's origin
-            pos_x = center_x + pos[0]
-            pos_y = center_y + pos[1]
-
-            # Ensure the position is within grid boundaries
-            if 0 <= pos_x < grid_width and 0 <= pos_y < grid_height:
-                grid[pos_y, pos_x] = 1
             else:
-                print(f"Skipping obstacle at out-of-bounds position: {pos}")
+                # Get obstacle properties
+                pos = np.round(obstacle.position() / self.resolution).astype(int)  # Call the position method
+                length = obstacle.width() / self.resolution
+                width = obstacle.length() / self.resolution
 
-            # Mark all grid cells within half the width and length of the obstacle as 1
-            half_width = int(width / (2 * self.resolution))
-            half_length = int(length / (2 * self.resolution))
-            for i in range(-half_width, half_width + 1):
-                for j in range(-half_length, half_length + 1):
-                    new_x = pos_x + i
-                    new_y = pos_y + j
-                    if 0 <= new_x < grid_width and 0 <= new_y < grid_height:
-                        grid[new_y, new_x] = 1
-                    else:
-                        print(f"Skipping out-of-bounds cell: ({new_x}, {new_y})")
+                # print(pos)
+                # print(type(pos))
+
+                if width == 0 or length == 0:
+                    print(f"Skipping obstacle with zero width or length: {obstacle}")
+                    continue
+
+                # Adjust position to be relative to the grid's origin
+                pos_x = center_x + pos[0]
+                pos_y = center_y + pos[1]
+
+                # Ensure the position is within grid boundaries
+                if 0 <= pos_x < grid_width and 0 <= pos_y < grid_height:
+                    grid[pos_y, pos_x] = 1
+                else:
+                    print(f"Skipping obstacle at out-of-bounds position: {pos}")
+
+                # Mark all grid cells within half the width and length of the obstacle as 1
+                half_width = int(width / (2 * self.resolution))
+                half_length = int(length / (2 * self.resolution))
+                for i in range(-half_width, half_width + 1):
+                    for j in range(-half_length, half_length + 1):
+                        new_x = pos_x + i
+                        new_y = pos_y + j
+                        if 0 <= new_x < grid_width and 0 <= new_y < grid_height:
+                            grid[new_y, new_x] = 1
+                        else:
+                            print(f"Skipping out-of-bounds cell: ({new_x}, {new_y})")
 
         self.start_pos_grid = (self.start_pos[0] + center_x, self.start_pos[1] + center_y)
         self.goal_pos_grid = (self.goal_pos[0] + center_x, self.goal_pos[1] + center_y)
