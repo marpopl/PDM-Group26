@@ -32,6 +32,7 @@ def calculate_heading(position, previous_position=None, velocity=None):
     heading = np.arctan2(vy, vx)
     return heading
 
+
 def calculate_next_waypoint(current_position, path, lookahead=2):
     # Find the closest waypoint ahead of the current position
     closest_index = None
@@ -47,6 +48,8 @@ def calculate_next_waypoint(current_position, path, lookahead=2):
     next_index = min(closest_index + lookahead, len(path) - 1)
     return path[next_index]
 
+
+
 def calculate_control_action(current_position, next_waypoint, current_heading):
     dx, dy = next_waypoint[0] - current_position[0], next_waypoint[1] - current_position[1]
     desired_angle = np.arctan2(dy, dx)
@@ -55,6 +58,7 @@ def calculate_control_action(current_position, next_waypoint, current_heading):
     angle_error = (angle_error + np.pi) % (2 * np.pi) - np.pi
     action = np.array([2.0, angle_error])  # Constant speed, adjusted steering
     return action
+
 
 
 def run_prius_with_walls(n_steps=10000, render=False):
@@ -90,8 +94,8 @@ def run_prius_with_walls(n_steps=10000, render=False):
     LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
     LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
     LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-    LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
-    LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=3) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+    #LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+    LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
     obstacles = LShape.get_obstacles()
 
 
@@ -110,7 +114,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
 
 
     # "a_star","centered"&"smooth" are working, True/False is for the visualizations
-    heuristic_points_2D= runner(start_pos,goal_pos,obstacles, region=5, path='smooth',visualise=True)
+    heuristic_points_2D= runner(start_pos,goal_pos,obstacles, region=6, path='smooth' ,visualise=False)
     heuristic_points_3D = [np.array([point[0], point[1], 0.1]) for point in heuristic_points_2D]
 
     # Set the camera zoom level
@@ -141,8 +145,23 @@ def run_prius_with_walls(n_steps=10000, render=False):
         env.close()
         return
 
+    # local planner settings:
+    stop_distance = 10.0
+    MOVING = 3
+    WAITING = 1
+    MOVEPAST = 2
+    state = MOVING
+    
+    distance_increasing_counter = 0
+    previous_distance = None
+    threshold_iterations = 10 
+    prius_passed_margin = 3.0
+    
+
+    
+
     # Initial position and action for the Prius
-    action = np.array([0.1, 0.0])
+    action = np.array([1.0, 0.0])
     ob = env.reset(pos=start_pos)
     print(f"Initial observation : {ob}")
 
@@ -152,25 +171,81 @@ def run_prius_with_walls(n_steps=10000, render=False):
         ob, *_ = env.step(action)
         history.append(ob)
 
-        print('ob: ',ob)
+        #print('ob: ',ob)
         current_position = ob['robot_0']['joint_state']['position'][:2]  # Extract x, y from observation
+        
+        
+        dynamic_obstacle_2 = env.get_obstacles()[9]
+        dynamic_obstacle_2_position = dynamic_obstacle_2.position()[:2]
+        dynamic_obstacle_2_velocity = dynamic_obstacle_2.velocity()
+
+        distance = round(np.linalg.norm(np.array(current_position) - np.array(dynamic_obstacle_2_position)), 4)
+        print('distance: ', distance)
+        print('distance: ', dynamic_obstacle_2_position)
+
+
+        # print('postion: ', dynamic_obstacle_2_position)
+        # print('velocity: ', dynamic_obstacle_2_position)
+        
 
         # Lock Camera to vehicle
         camera_target_position = [current_position[0], current_position[1], 0.0]
         env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
 
-        # Get heading, next waypoint and action
-        heading_from_position = calculate_heading(current_position, previous_position=previous_position)
-        print("Heading from position:", heading_from_position)
-        next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
-        action = calculate_control_action(current_position, next_waypoint, heading_from_position)
-        print(f"Step {i}, Position: {current_position}, Next Waypoint: {next_waypoint}, Action: {action}")
-        
-        if np.linalg.norm(np.array(current_position) - np.array(path[-1])) < 0.5:  # Stop if near the goal
-            print("Goal reached!")
-            break
+        if state == MOVING:
+            if distance <= stop_distance:
+                print('want to stop')
+                action = np.array([0.0, 0.0])
+                state = WAITING
 
-        previous_position = current_position
+            else:
+                # Get heading, next waypoint and action
+                heading_from_position = calculate_heading(current_position, previous_position=previous_position)
+                #print("Heading from position:", heading_from_position)
+                next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
+                action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+                #print(f"Step {i}, Position: {current_position}, Next Waypoint: {next_waypoint}, Action: {action}")
+                print('normal')
+                if np.linalg.norm(np.array(current_position) - np.array(path[-1])) < 0.5:  # Stop if near the goal
+                    print("Goal reached!")
+                    break
+                previous_position = current_position
+
+        elif state == WAITING:
+            if previous_distance is not None:
+                if distance > previous_distance:
+                    distance_increasing_counter += 1
+
+                else:
+                    distance_increasing_counter = 0  # reset counter if increases
+
+            previous_distance = distance
+
+            # Check if the distance has been increasing for enough iterations
+            if distance_increasing_counter >= threshold_iterations:
+                print('want to move past')
+                action = np.array([3.0, 0.0])
+                state = MOVEPAST
+                
+            else:
+                print('wait')
+                action = np.array([0.0, 0.0])  # Stop
+        
+        elif state == MOVEPAST:
+            if current_position[0] > dynamic_obstacle_2_position[0] + prius_passed_margin:
+                print("Prius has moved past the obstacle. Resuming normal motion.")
+                state = MOVING
+                # Calculate the next control action to resume path following
+                # next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
+                # heading_from_position = calculate_heading(current_position, previous_position=previous_position)
+                # action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+            else:
+                print("Still moving past the obstacle.")
+                action = np.array([3.0, 0.0])  # Continue moving past
+
+  
+    
+
     env.close()
     return history
 
