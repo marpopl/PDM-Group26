@@ -5,6 +5,8 @@ from motion_primitives import generate_path_with_model, visualize_path, visualiz
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
 from rectangular_environment import RectangularEnvironment
 from scipy.interpolate import CubicSpline
+from global_planner import runner_Astar_grid
+from global_planner import calculate_path_length
 import pybullet as p
 
 
@@ -104,6 +106,7 @@ def run_prius_with_walls(render=True):
     )]
 
     env = UrdfEnv(dt=0.01, robots=robots, render=render)
+    ##This is to load the RectangularEnvironment
     rect = RectangularEnvironment(length=65, width=25)
     rect.generate_walls()
     rect.generate_static_obstacle_1(position_offset=-15, width_scaling=3.5, length_scaling=1.0)
@@ -155,6 +158,16 @@ def run_prius_with_walls(render=True):
     final_path_orig = final_path
     final_path = smooth_path_with_spline(final_path)
     visualize_path_with_smoothing(start_pos, goal_pos, final_path_orig, final_path)
+
+    ## calculate heuristic for optimality 
+    _, a_star_path = runner_Astar_grid(start_pos, goal_pos, obstacles, visualise_path=False)
+    # adjust A* path, need to ask Jolle Why
+    a_star_path = [(y - 35, x - 35) for x, y in a_star_path]
+    length_astar = calculate_path_length(a_star_path)
+
+    # calculate length final path MP
+    length_mp = calculate_path_length(final_path)
+    print("optimal path length heuristic (length_mp / length_astar)", length_mp / length_astar)
 
     env.reset(pos=start_pos)
 
