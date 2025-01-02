@@ -4,6 +4,7 @@ from urdf_env import UrdfEnv
 from motion_primitives import generate_path_with_model, visualize_path, visualize_motion_primitives_grid
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
 from rectangular_environment import RectangularEnvironment
+from l_shaped_environment import LShapedEnvironment
 from scipy.interpolate import CubicSpline
 from global_planner import runner_Astar_grid
 from global_planner import calculate_path_length
@@ -106,7 +107,7 @@ def run_prius_with_walls(render=True):
     )]
 
     env = UrdfEnv(dt=0.01, robots=robots, render=render)
-    ##This is to load the RectangularEnvironment
+    #This is to load the RectangularEnvironment
     rect = RectangularEnvironment(length=65, width=25)
     rect.generate_walls()
     rect.generate_static_obstacle_1(position_offset=-15, width_scaling=3.5, length_scaling=1.0)
@@ -115,6 +116,40 @@ def run_prius_with_walls(render=True):
     obstacles = rect.get_obstacles()
     for obstacle in obstacles:
         env.add_obstacle(obstacle)
+    print("Environment added")
+    start_pos = np.array([0.0, 20.0, 0.0])
+    goal_pos = np.array([0.0, -25.0, 0.0])
+    p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
+    p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
+
+    
+
+
+    ## this to load L-shaped environment
+    # fpl, spl, w = 50,40,15
+    # LShape = LShapedEnvironment(first_part_lenght=fpl, second_part_lenght=spl, width=w)
+    # LShape.generate_walls()
+    # LShape.generate_static_obstacle_1_left(position_offset=25, width_scaling=1.0, length_scaling=1.0) # position_offset=15, width_scaling=1.0, length_scaling=1.0
+    # LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
+    # LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+    # LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+    # LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+    # LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+    # obstacles = LShape.get_obstacles()
+
+
+    # obstacles = LShape.get_obstacles()
+    # for obstacle in obstacles:
+    #     env.add_obstacle(obstacle)
+    # print("Environment added")
+
+    # start_pos = np.array([(w/2),(fpl-w)-3,0]) # 7.5, 35 # use this one as start to obtain same result
+    # #for L shaped, able to find -10
+    # #goal_pos = np.array([-20, -7.5, 0]) original end position, use this one as start to obtain same result as in paper
+    # goal_pos = np.array([(w/2), 20 ,0])
+    # p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
+    # p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
+
 
     robot = robots[0]
 
@@ -125,10 +160,6 @@ def run_prius_with_walls(render=True):
     camera_target_position = [0.0, 6.75, 0.0]
     env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
 
-    start_pos = np.array([0.0, 20.0, 0.0])
-    goal_pos = np.array([0.0, -25.0, 0.0])
-    p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
-    p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
     # Add start and goal spheres
     sphere_radius = 0.2
@@ -151,14 +182,13 @@ def run_prius_with_walls(render=True):
         dt=1.0,
     )
 
-    # Visualize
-    visualize_motion_primitives_grid(start_pos, goal_pos, all_expanded_states)
-    visualize_path(start_pos, goal_pos, final_path)
+
+    
+    #visualize_path(start_pos, goal_pos, final_path)
 
     final_path_orig = final_path
     final_path = smooth_path_with_spline(final_path)
-    visualize_path_with_smoothing(start_pos, goal_pos, final_path_orig, final_path)
-
+ 
     ## calculate heuristic for optimality 
     _, a_star_path = runner_Astar_grid(start_pos, goal_pos, obstacles, visualise_path=False)
     # adjust A* path, need to ask Jolle Why
@@ -168,6 +198,12 @@ def run_prius_with_walls(render=True):
     # calculate length final path MP
     length_mp = calculate_path_length(final_path)
     print("optimal path length heuristic (length_mp / length_astar)", length_mp / length_astar)
+
+
+    #visualize
+    visualize_motion_primitives_grid(start_pos, goal_pos, all_expanded_states)
+    visualize_path_with_smoothing(start_pos, goal_pos, final_path_orig, final_path)
+
 
     env.reset(pos=start_pos)
 
@@ -192,7 +228,6 @@ def run_prius_with_walls(render=True):
         if dist_to_goal < reached_goal_threshold:
             print("Reached goal!")
             break
-
         closest_idx = closest_point_on_path([car_x, car_y, car_theta], final_path)
         target_idx = min(closest_idx + 5, len(final_path) - 1)
         target_x, target_y = final_path[target_idx][0], final_path[target_idx][1]

@@ -1,6 +1,7 @@
 import heapq
 import numpy as np
 import matplotlib.pyplot as plt
+from mpscenes.obstacles.dynamic_cylinder_obstacle import DynamicCylinderObstacle
 
 max_steering_angle = 0.8727
 min_turning_radius = 0.72
@@ -15,23 +16,24 @@ def is_collision_free(state, obstacles, car_size):
     car_max_x = car_x + car_length / 2 + safety_margin
     car_min_y = car_y - car_width / 2 - safety_margin
     car_max_y = car_y + car_width / 2 + safety_margin
-
+    
     for obstacle in obstacles:
-        obs_x, obs_y, _ = obstacle.position()
-        obs_width = obstacle.width()
-        obs_length = obstacle.length()
+        if type(obstacle) != DynamicCylinderObstacle:
+            obs_x, obs_y, _ = obstacle.position()
+            obs_width = obstacle.width()
+            obs_length = obstacle.length()
 
-        # Adjust obstacle boundaries with safety margin
-        obs_min_x = obs_x - obs_length / 2 - safety_margin
-        obs_max_x = obs_x + obs_length / 2 + safety_margin
-        obs_min_y = obs_y - obs_width / 2 - safety_margin
-        obs_max_y = obs_y + obs_width / 2 + safety_margin
+            # Adjust obstacle boundaries with safety margin
+            obs_min_x = obs_x - obs_length / 2 - safety_margin
+            obs_max_x = obs_x + obs_length / 2 + safety_margin
+            obs_min_y = obs_y - obs_width / 2 - safety_margin
+            obs_max_y = obs_y + obs_width / 2 + safety_margin
 
-        if (
-            car_min_x < obs_max_x and car_max_x > obs_min_x and
-            car_min_y < obs_max_y and car_max_y > obs_min_y
-        ):
-            return False
+            if (
+                car_min_x < obs_max_x and car_max_x > obs_min_x and
+                car_min_y < obs_max_y and car_max_y > obs_min_y
+            ):
+                return False
     return True
 
 def expand_motion_primitives(model, current_pos, obstacles, car_size, velocity=1.0, dt=1.0, simulation_dt=0.01, max_depth=3):

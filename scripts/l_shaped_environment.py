@@ -60,6 +60,25 @@ class LShapedEnvironment:
                     'height': self.wall_height,
                     'length': self.wall_thickness,
                 }},
+
+            {
+                'type': 'box',
+                'geometry': {
+                    'position': [7.5, 35, self.z_position],
+                    'width': self.wall_thickness,  # closing wall start 
+                    'height': self.wall_height,
+                    'length':  15,
+                }},
+            
+            {
+                'type': 'box',
+                'geometry': {
+                    'position': [-25, -7.5, self.z_position],
+                    'width': 15,  # Closing wall goal
+                    'height': self.wall_height,
+                    'length':  self.wall_thickness,
+                }},
+
             ]
     
         # add walls to obstacles list
