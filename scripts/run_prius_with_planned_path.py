@@ -11,6 +11,11 @@ from global_planner import calculate_path_length
 import pybullet as p
 
 
+## choose which environment you want to run: 
+## if L_shaped = True, Rectangular must be set to False
+L_shaped = False  
+Rectangular = True 
+
 def smooth_path_with_spline(path, num_points=1000):
     """Smooth the given path using cubic spline interpolation."""
     x = [pt[0] for pt in path]
@@ -108,47 +113,49 @@ def run_prius_with_walls(render=True):
 
     env = UrdfEnv(dt=0.01, robots=robots, render=render)
     #This is to load the RectangularEnvironment
-    rect = RectangularEnvironment(length=65, width=25)
-    rect.generate_walls()
-    rect.generate_static_obstacle_1(position_offset=-15, width_scaling=3.5, length_scaling=1.0)
-    rect.generate_static_obstacle_2(position_offset=10, width_scaling=3.5, length_scaling=1.0)
+    if Rectangular:
+        rect = RectangularEnvironment(length=65, width=25)
+        rect.generate_walls()
+        rect.generate_static_obstacle_1(position_offset=-15, width_scaling=3.5, length_scaling=1.0)
+        rect.generate_static_obstacle_2(position_offset=10, width_scaling=3.5, length_scaling=1.0)
 
-    obstacles = rect.get_obstacles()
-    for obstacle in obstacles:
-        env.add_obstacle(obstacle)
-    print("Environment added")
-    start_pos = np.array([0.0, 20.0, 0.0])
-    goal_pos = np.array([0.0, -25.0, 0.0])
-    p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
-    p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
+        obstacles = rect.get_obstacles()
+        for obstacle in obstacles:
+            env.add_obstacle(obstacle)
+        print("Environment added")
+        start_pos = np.array([0.0, 20.0, 0.0]) # 0, 20, 0 for same result as in paper
+        goal_pos = np.array([0.0, -25.0, 0.0]) # 0, -25, 0.0 for same result as in paper
+        p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
+        p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
     
 
 
     ## this to load L-shaped environment
-    # fpl, spl, w = 50,40,15
-    # LShape = LShapedEnvironment(first_part_lenght=fpl, second_part_lenght=spl, width=w)
-    # LShape.generate_walls()
-    # LShape.generate_static_obstacle_1_left(position_offset=25, width_scaling=1.0, length_scaling=1.0) # position_offset=15, width_scaling=1.0, length_scaling=1.0
-    # LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
-    # LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-    # LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-    # LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
-    # LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
-    # obstacles = LShape.get_obstacles()
+    if L_shaped:
+        fpl, spl, w = 50,40,15
+        LShape = LShapedEnvironment(first_part_lenght=fpl, second_part_lenght=spl, width=w)
+        LShape.generate_walls()
+        LShape.generate_static_obstacle_1_left(position_offset=25, width_scaling=1.0, length_scaling=1.0) # position_offset=15, width_scaling=1.0, length_scaling=1.0
+        LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
+        LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+        LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+        LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+        LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+        obstacles = LShape.get_obstacles()
 
 
-    # obstacles = LShape.get_obstacles()
-    # for obstacle in obstacles:
-    #     env.add_obstacle(obstacle)
-    # print("Environment added")
+        obstacles = LShape.get_obstacles()
+        for obstacle in obstacles:
+            env.add_obstacle(obstacle)
+        print("Environment added")
 
-    # start_pos = np.array([(w/2),(fpl-w)-3,0]) # 7.5, 35 # use this one as start to obtain same result
-    # #for L shaped, able to find -10
-    # #goal_pos = np.array([-20, -7.5, 0]) original end position, use this one as start to obtain same result as in paper
-    # goal_pos = np.array([(w/2), 20 ,0])
-    # p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
-    # p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
+        start_pos = np.array([(w/2),(fpl-w)-3,0]) # 7.5, 35 # use this one as start to obtain same result
+        #for L shaped, able to find -10
+        #goal_pos = np.array([-20, -7.5, 0]) original end position, use this one as start to obtain same result as in paper
+        goal_pos = np.array([(w/2), 20 ,0])
+        p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
+        p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
 
     robot = robots[0]
