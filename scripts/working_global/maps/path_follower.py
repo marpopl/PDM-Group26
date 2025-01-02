@@ -94,10 +94,11 @@ def run_prius_with_walls(n_steps=10000, render=False):
     LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
     LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
     LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-    #LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
-    LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
-    obstacles = LShape.get_obstacles()
+    # LShape.generate_dynamic_obstacle_1() # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+    LShape.generate_dynamic_obstacle_1(position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=2.5)
 
+    # LShape.generate_dynamic_obstacle_2()
+    # LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
 
     obstacles = LShape.get_obstacles()
     for obstacle in obstacles:
@@ -146,7 +147,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
         return
 
     # local planner settings:
-    stop_distance = 10.0
+    stop_distance = 5.0
     MOVING = 3
     WAITING = 1
     MOVEPAST = 2
@@ -167,6 +168,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
 
     previous_position = [0,0]
     history = []
+    simulation_time = 0.0
     for i in range(n_steps):
         ob, *_ = env.step(action)
         history.append(ob)
@@ -174,18 +176,14 @@ def run_prius_with_walls(n_steps=10000, render=False):
         #print('ob: ',ob)
         current_position = ob['robot_0']['joint_state']['position'][:2]  # Extract x, y from observation
         
-        
-        dynamic_obstacle_2 = env.get_obstacles()[9]
-        dynamic_obstacle_2_position = dynamic_obstacle_2.position()[:2]
-        dynamic_obstacle_2_velocity = dynamic_obstacle_2.velocity()
+        dynamic_obstacle = env.get_obstacles()[9]
+        dynamic_obstacle_name = dynamic_obstacle.name()
+        dynamic_obstacle_position = LShape.update_position(dynamic_obstacle_name, simulation_time)[:2]
+        # dynamic_obstacle_2_velocity = dynamic_obstacle_2.velocity()
 
-        distance = round(np.linalg.norm(np.array(current_position) - np.array(dynamic_obstacle_2_position)), 4)
+        distance = round(np.linalg.norm(np.array(current_position) - np.array(dynamic_obstacle_position)), 4)
         print('distance: ', distance)
-        print('distance: ', dynamic_obstacle_2_position)
-
-
-        # print('postion: ', dynamic_obstacle_2_position)
-        # print('velocity: ', dynamic_obstacle_2_position)
+        # print('dynamic_obstacle_position: ', dynamic_obstacle_position)
         
 
         # Lock Camera to vehicle
@@ -232,7 +230,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
                 action = np.array([0.0, 0.0])  # Stop
         
         elif state == MOVEPAST:
-            if current_position[0] > dynamic_obstacle_2_position[0] + prius_passed_margin:
+            if current_position[0] > dynamic_obstacle_position[0] + prius_passed_margin:
                 print("Prius has moved past the obstacle. Resuming normal motion.")
                 state = MOVING
                 # Calculate the next control action to resume path following
@@ -243,6 +241,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
                 print("Still moving past the obstacle.")
                 action = np.array([3.0, 0.0])  # Continue moving past
 
+        simulation_time += env.dt
   
     
 
