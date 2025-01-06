@@ -98,7 +98,7 @@ def run_prius_with_walls(n_steps=10000, render=False):
     LShape.generate_dynamic_obstacle_1(position_offset=15, radius=0.5, height=1, frequency=15, speed_scaling=2.0)
 
     # LShape.generate_dynamic_obstacle_2()
-    # LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+    LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
 
     obstacles = LShape.get_obstacles()
     for obstacle in obstacles:
@@ -147,15 +147,19 @@ def run_prius_with_walls(n_steps=10000, render=False):
         return
 
     # local planner settings:
-    stop_distance = 7.0
+    stop_distance = 4.0
     MOVING = 3
     WAITING = 1
     MOVEPAST = 2
     state = MOVING
     
     max_distance_reached = False 
-    minimum_distance_threshold = 6.0
-    maximum_distance_threshold = 7.5
+    minimum_distance_threshold = 5.0
+    maximum_distance_threshold = 5.5
+    previous_distance = None
+    distance_increasing_counter = 0
+    waiting_threshold = 100
+    prius_passed_margin = 3.0
 
     
 
@@ -167,80 +171,112 @@ def run_prius_with_walls(n_steps=10000, render=False):
     previous_position = [0,0]
     history = []
     simulation_time = 0.0
+
     for i in range(n_steps):
         ob, *_ = env.step(action)
         history.append(ob)
 
-        #print('ob: ',ob)
         current_position = ob['robot_0']['joint_state']['position'][:2]  # Extract x, y from observation
         
-        dynamic_obstacle = env.get_obstacles()[9]
-        dynamic_obstacle_name = dynamic_obstacle.name()
-        dynamic_obstacle_position = LShape.update_position(dynamic_obstacle_name, simulation_time)[:2]
-        # dynamic_obstacle_2_velocity = dynamic_obstacle_2.velocity()
+        env.update_obstacles()
 
-        distance = round(np.linalg.norm(np.array(current_position) - np.array(dynamic_obstacle_position)), 4)
-        print('distance: ', distance)
-        print('dynamic_obstacle_position: ', dynamic_obstacle_position, "car_position: ", current_position)
-        
+        # dynamic_obstacles = [obs for obs in env.get_obstacles().values() if obs.movable()]
+        dynamic_obstacles = [env.get_obstacles()[9], env.get_obstacles()[10]]
+        if dynamic_obstacles:
+            # Find the closest dynamic obstacle
+            closest_obstacle = None
+            min_distance = float('inf')
 
-        # Lock Camera to vehicle
+            for obstacle in dynamic_obstacles:
+                obstacle_position = np.array(obstacle.position(t=simulation_time).tolist()[:2])
+                distance_to_obstacle = np.linalg.norm(np.array(current_position) - obstacle_position)
+                
+                if distance_to_obstacle < min_distance:
+                    min_distance = distance_to_obstacle
+                    closest_obstacle = obstacle
+
+            # Proceed with the closest obstacle
+            if closest_obstacle:
+                closest_obstacle_position = closest_obstacle.position(t=simulation_time).tolist()
+                distance = round(min_distance, 4)
+
+                print(f"Closest obstacle position: {closest_obstacle_position}, Distance: {distance}")
+
+                if state == MOVING:
+                    if distance <= stop_distance:
+                        print('Stopping for obstacle')
+                        action = np.array([0.0, 0.0])
+                        state = WAITING
+                        out_of_range_counter = 0
+
+                    else:
+                        # Get heading, next waypoint and action
+                        heading_from_position = calculate_heading(current_position, previous_position=previous_position)
+                        #print("Heading from position:", heading_from_position)
+                        next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
+                        action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+                        #print(f"Step {i}, Position: {current_position}, Next Waypoint: {next_waypoint}, Action: {action}")
+                        print('Moving normally')
+                        if np.linalg.norm(np.array(current_position) - np.array(path[-1])) < 0.5:  # Stop if near the goal
+                            print("Goal reached!")
+                            break
+                        previous_position = current_position
+
+                elif state == WAITING:
+                    if previous_distance is not None:
+                        # Check if the obstacle is moving away
+                        if distance > previous_distance:
+                            distance_increasing_counter += 1
+                            print(f"Obstacle moving away, counter: {distance_increasing_counter}")
+                        else:
+                            distance_increasing_counter = 0  # Reset if obstacle comes closer
+                            print("Obstacle getting closer, resetting counter.")
+
+                    previous_distance = distance  # Update previous distance
+
+
+                    if distance_increasing_counter >= waiting_threshold:
+                        print('Moving past obstacle')
+                        action = np.array([3.0, 0.0])
+                        state = MOVEPAST
+                    else:
+                        print('Waiting for obstacle to clear')
+                        action = np.array([0.0, 0.0])
+
+                # elif state == WAITING:
+
+                #     if not max_distance_reached:
+                #         if distance > maximum_distance_threshold:
+
+                #             max_distance_reached = True
+                #         action = np.array([0.0, 0.0]) 
+                #     else:
+                        
+                #         if distance < minimum_distance_threshold:
+                #             print('Moving past obstacle')
+                #             action = np.array([3.0, 0.0])  # Start moving
+                #             state = MOVEPAST
+                #         else:
+                #             print('Waiting for obstacle to clear')
+                #             action = np.array([0.0, 0.0])  # Keep waiting
+                        
+                elif state == MOVEPAST:
+                    if current_position[0] > closest_obstacle_position[0] + prius_passed_margin:
+                        print("Prius has moved past the obstacle. Resuming normal motion.")
+                        state = MOVING
+                        # Calculate the next control action to resume path following
+                        # next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
+                        # heading_from_position = calculate_heading(current_position, previous_position=previous_position)
+                        # action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+                    else:
+                        print("Still moving past the obstacle.")
+                        action = np.array([3.0, 0.0])  # Continue moving past
+
+                simulation_time += env.dt
+  
+            # Lock Camera to vehicle
         camera_target_position = [current_position[0], current_position[1], 0.0]
         env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
-
-        if state == MOVING:
-            if distance <= stop_distance:
-                print('want to stop')
-                action = np.array([0.0, 0.0])
-                state = WAITING
-                out_of_range_counter = 0
-
-            else:
-                # Get heading, next waypoint and action
-                heading_from_position = calculate_heading(current_position, previous_position=previous_position)
-                #print("Heading from position:", heading_from_position)
-                next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
-                action = calculate_control_action(current_position, next_waypoint, heading_from_position)
-                #print(f"Step {i}, Position: {current_position}, Next Waypoint: {next_waypoint}, Action: {action}")
-                print('normal')
-                if np.linalg.norm(np.array(current_position) - np.array(path[-1])) < 0.5:  # Stop if near the goal
-                    print("Goal reached!")
-                    break
-                previous_position = current_position
-
-
-
-        elif state == WAITING:
-
-            if not max_distance_reached:
-                if distance > maximum_distance_threshold:
-
-                    max_distance_reached = True
-                action = np.array([0.0, 0.0]) 
-            else:
-                
-                if distance < minimum_distance_threshold:
-
-                    action = np.array([3.0, 0.0])  # Start moving
-                    state = MOVEPAST
-                else:
-
-                    action = np.array([0.0, 0.0])  # Keep waiting
-                
-        elif state == MOVEPAST:
-            if current_position[0] > dynamic_obstacle_position[0] + prius_passed_margin:
-                print("Prius has moved past the obstacle. Resuming normal motion.")
-                state = MOVING
-                # Calculate the next control action to resume path following
-                # next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
-                # heading_from_position = calculate_heading(current_position, previous_position=previous_position)
-                # action = calculate_control_action(current_position, next_waypoint, heading_from_position)
-            else:
-                print("Still moving past the obstacle.")
-                action = np.array([3.0, 0.0])  # Continue moving past
-
-        simulation_time += env.dt
-  
     
 
     env.close()

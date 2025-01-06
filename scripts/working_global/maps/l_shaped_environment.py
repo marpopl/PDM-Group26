@@ -267,51 +267,5 @@ class LShapedEnvironment:
 
         self.obstacles.append(dynamic_cylinder_2)
 
-    def update_position(self, obstacle_name, simulation_time):
-        """
-        Update the position of a specified dynamic obstacle.
-
-        Parameters:
-            obstacle_name (str): Name of the dynamic obstacle to update.
-            simulation_time (float): Current simulation time.
-
-        Returns:
-            np.array: Updated position of the dynamic obstacle.
-        """
-        # Find the obstacle by name
-        dynamic_obstacle = next(
-            (ob for ob in self.obstacles if ob._name == obstacle_name), None
-        )
-
-        if not dynamic_obstacle:
-            raise ValueError(f"Dynamic obstacle '{obstacle_name}' not found in environment.")
-
-        # Retrieve trajectory details
-        geometry = dynamic_obstacle.geometry()
-        trajectory = geometry.get('trajectory', {})
-        control_points = trajectory.get('controlPoints')
-        duration = trajectory.get('duration')
-
-        if not control_points or duration is None:
-            raise ValueError(f"Invalid trajectory configuration for obstacle '{obstacle_name}'.")
-
-        # Calculate current segment and interpolation factor
-        segment_duration = duration / (len(control_points) - 1)
-
-        cycle_time = simulation_time % duration
-        segment_index = int(cycle_time // segment_duration)
-        alpha = (cycle_time % segment_duration) / segment_duration
-
-        # Determine positions and interpolate
-        left_position = control_points[segment_index % len(control_points)]
-        right_position = control_points[(segment_index + 1) % len(control_points)]
-        current_position = (1 - alpha) * np.array(left_position) + alpha * np.array(right_position)
-
-        # Optionally update the obstacle's internal position state
-        dynamic_obstacle._position = current_position
-
-        return current_position
-
-    
     def get_obstacles(self):
         return self.obstacles
