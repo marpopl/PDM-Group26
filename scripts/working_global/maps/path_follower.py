@@ -147,21 +147,17 @@ def run_prius_with_walls(n_steps=10000, render=False):
         return
 
     # local planner settings:
-    stop_distance = 4.0
     MOVING = 3
     WAITING = 1
     MOVEPAST = 2
+    REVERSING = 4
     state = MOVING
     
-    max_distance_reached = False 
-    minimum_distance_threshold = 5.0
+    max_distance_reached = False
+    stop_distance = 5.0
+    minimum_distance_threshold = 4.0
     maximum_distance_threshold = 5.5
-    previous_distance = None
-    distance_increasing_counter = 0
-    waiting_threshold = 100
     prius_passed_margin = 3.0
-
-    
 
     # Initial position and action for the Prius
     action = np.array([1.0, 0.0])
@@ -177,8 +173,6 @@ def run_prius_with_walls(n_steps=10000, render=False):
         history.append(ob)
 
         current_position = ob['robot_0']['joint_state']['position'][:2]  # Extract x, y from observation
-        
-        env.update_obstacles()
 
         # dynamic_obstacles = [obs for obs in env.get_obstacles().values() if obs.movable()]
         dynamic_obstacles = [env.get_obstacles()[9], env.get_obstacles()[10]]
@@ -207,67 +201,53 @@ def run_prius_with_walls(n_steps=10000, render=False):
                         print('Stopping for obstacle')
                         action = np.array([0.0, 0.0])
                         state = WAITING
-                        out_of_range_counter = 0
 
                     else:
-                        # Get heading, next waypoint and action
                         heading_from_position = calculate_heading(current_position, previous_position=previous_position)
-                        #print("Heading from position:", heading_from_position)
                         next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
                         action = calculate_control_action(current_position, next_waypoint, heading_from_position)
-                        #print(f"Step {i}, Position: {current_position}, Next Waypoint: {next_waypoint}, Action: {action}")
                         print('Moving normally')
                         if np.linalg.norm(np.array(current_position) - np.array(path[-1])) < 0.5:  # Stop if near the goal
                             print("Goal reached!")
                             break
                         previous_position = current_position
-
+                        
                 elif state == WAITING:
-                    if previous_distance is not None:
-                        # Check if the obstacle is moving away
-                        if distance > previous_distance:
-                            distance_increasing_counter += 1
-                            print(f"Obstacle moving away, counter: {distance_increasing_counter}")
-                        else:
-                            distance_increasing_counter = 0  # Reset if obstacle comes closer
-                            print("Obstacle getting closer, resetting counter.")
-
-                    previous_distance = distance  # Update previous distance
-
-
-                    if distance_increasing_counter >= waiting_threshold:
-                        print('Moving past obstacle')
-                        action = np.array([3.0, 0.0])
-                        state = MOVEPAST
-                    else:
-                        print('Waiting for obstacle to clear')
+                    if distance < minimum_distance_threshold:
+                        print(f"Obstacle too close! Distance: {distance}. Activating reverse gear.")
+                        action = np.array([-2.0, 0.0])  # Reverse at constant speed
+                        state = REVERSING
+                    elif not max_distance_reached:
+                        if distance > maximum_distance_threshold:
+                            max_distance_reached = True
                         action = np.array([0.0, 0.0])
+                    else:
+                        if distance < stop_distance:
+                            print('Waiting for obstacle to clear')
+                            action = np.array([0.0, 0.0])
+                        else:
+                            print('Moving past obstacle')
+                            action = np.array([3.0, 0.0])  # Start moving
+                            state = MOVEPAST
+                
+                elif state == REVERSING:
+                    if distance > minimum_distance_threshold:
+                        print("Obstacle is no longer too close. Stopping reverse gear.")
+                        action = np.array([0.0, 0.0])  # Stop reversing
+                        state = WAITING
+                    else:
+                        print(f"Still reversing. Distance: {distance}")
+                        action = np.array([-2.0, 0.0])  # Continue reversing
 
-                # elif state == WAITING:
 
-                #     if not max_distance_reached:
-                #         if distance > maximum_distance_threshold:
-
-                #             max_distance_reached = True
-                #         action = np.array([0.0, 0.0]) 
-                #     else:
-                        
-                #         if distance < minimum_distance_threshold:
-                #             print('Moving past obstacle')
-                #             action = np.array([3.0, 0.0])  # Start moving
-                #             state = MOVEPAST
-                #         else:
-                #             print('Waiting for obstacle to clear')
-                #             action = np.array([0.0, 0.0])  # Keep waiting
-                        
                 elif state == MOVEPAST:
-                    if current_position[0] > closest_obstacle_position[0] + prius_passed_margin:
+                    if distance > maximum_distance_threshold:
                         print("Prius has moved past the obstacle. Resuming normal motion.")
                         state = MOVING
-                        # Calculate the next control action to resume path following
-                        # next_waypoint = calculate_next_waypoint(current_position, path, lookahead=2)
-                        # heading_from_position = calculate_heading(current_position, previous_position=previous_position)
-                        # action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+                    elif distance < minimum_distance_threshold:
+                        print(f"Obstacle too close during MOVEPAST! Activating reverse gear.")
+                        action = np.array([-2.0, 0.0])  # Reverse at constant speed
+                        state = REVERSING
                     else:
                         print("Still moving past the obstacle.")
                         action = np.array([3.0, 0.0])  # Continue moving past
