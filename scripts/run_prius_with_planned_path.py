@@ -9,12 +9,13 @@ from scipy.interpolate import CubicSpline
 from global_planner import runner_Astar_grid
 from global_planner import calculate_path_length
 import pybullet as p
+import time
 
 
 ## choose which environment you want to run: 
-## if L_shaped = True, Rectangular must be set to False
-L_shaped = False  
-Rectangular = True 
+## if L_shaped = True, Rectangular must be set to False and vice versa
+L_shaped = True  
+Rectangular = False 
 
 def smooth_path_with_spline(path, num_points=1000):
     """Smooth the given path using cubic spline interpolation."""
@@ -114,7 +115,7 @@ def run_prius_with_walls(render=True):
     env = UrdfEnv(dt=0.01, robots=robots, render=render)
     #This is to load the RectangularEnvironment
     if Rectangular:
-        rect = RectangularEnvironment(length=65, width=25)
+        rect = RectangularEnvironment(length=65, width=25) # 65, 25
         rect.generate_walls()
         rect.generate_static_obstacle_1(position_offset=-15, width_scaling=3.5, length_scaling=1.0)
         rect.generate_static_obstacle_2(position_offset=10, width_scaling=3.5, length_scaling=1.0)
@@ -123,8 +124,10 @@ def run_prius_with_walls(render=True):
         for obstacle in obstacles:
             env.add_obstacle(obstacle)
         print("Environment added")
+        # start_pos = np.array([0.0, 20.0, 0.0]) # 0, 20, 0 for same result as in paper
+        # goal_pos = np.array([0.0, -25.0, 0.0]) # 0, -25, 0.0 for same result as in paper
         start_pos = np.array([0.0, 20.0, 0.0]) # 0, 20, 0 for same result as in paper
-        goal_pos = np.array([0.0, -25.0, 0.0]) # 0, -25, 0.0 for same result as in paper
+        goal_pos = np.array([-5.0, -5.0, 0.0]) # 0, -25, 0.0 for same result as in paper
         p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
         p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
@@ -154,8 +157,8 @@ def run_prius_with_walls(render=True):
         #for L shaped, able to find -10
         #goal_pos = np.array([-20, -7.5, 0]) original end position, use this one as start to obtain same result as in paper
         goal_pos = np.array([(w/2), 20 ,0])
-        p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
-        p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
+        # p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
+        # p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
 
     robot = robots[0]
@@ -179,6 +182,7 @@ def run_prius_with_walls(render=True):
     p.createMultiBody(0, col_sphere, vis_sphere_goal, [goal_pos[0], goal_pos[1], 0.0])
 
     # Generate the path
+    mp_start_time = time.time()
     final_path, _, all_expanded_states = generate_path_with_model(
         model=robot,
         start_pos=start_pos,
@@ -188,6 +192,7 @@ def run_prius_with_walls(render=True):
         velocity=1.0,
         dt=1.0,
     )
+    mp_end_time = time.time()
 
 
     
@@ -204,7 +209,7 @@ def run_prius_with_walls(render=True):
 
     # calculate length final path MP
     length_mp = calculate_path_length(final_path)
-    print("optimal path length heuristic (length_mp / length_astar)", length_mp / length_astar)
+    
 
 
     #visualize
@@ -214,20 +219,20 @@ def run_prius_with_walls(render=True):
 
     env.reset(pos=start_pos)
 
-    # Draw smoothed trajectory
-    for i in range(len(final_path) - 1):
-        p.addUserDebugLine([final_path[i][0], final_path[i][1], 0.1],
-                           [final_path[i + 1][0], final_path[i + 1][1], 0.1],
-                           lineColorRGB=[0, 0, 1], lineWidth=2)
+    # # Draw smoothed trajectory
+    # for i in range(len(final_path) - 1):
+    #     p.addUserDebugLine([final_path[i][0], final_path[i][1], 0.1],
+    #                        [final_path[i + 1][0], final_path[i + 1][1], 0.1],
+    #                        lineColorRGB=[0, 0, 1], lineWidth=2)
 
     # PID Controller setup
+    pid_start_time = time.time()
     current_steering_angle = 0.0
     steering_pid = PIDController(Kp=1.0, Ki=0.0, Kd=0.1, output_limits=(-max_steering_angle, max_steering_angle))
     dt = env.dt
     time_steps = 0
     max_steps = 10000
     reached_goal_threshold = 1.0
-
     while time_steps < max_steps:
         robot.update_state()
         car_x, car_y, car_theta = robot.state["joint_state"]["position"]
@@ -249,8 +254,22 @@ def run_prius_with_walls(render=True):
         env.step(np.array([velocity, current_steering_angle]))
         time_steps += 1
 
+    pid_end_time = time.time()
     print("Path followed successfully with PID controller!")
     env.close()
+
+    # Metrics
+    print("\n--- Metrics Summary ---")
+    print(f"1) Starting position: {start_pos}")
+    print(f"2) Goal position: {goal_pos}")
+    print(f"3) Distance between start and goal: {np.linalg.norm(start_pos[:2] - goal_pos[:2]):.2f}")
+    print(f"4) Path length computed by A*: {length_astar:.2f}")
+    print(f"5) Path length using Motion Primitives: {length_mp:.2f}")
+    print("6) optimal path length heuristic (length_mp / length_astar)", length_mp / length_astar)
+    print(f"7) Computation time of Motion Primitives path: {mp_end_time - mp_start_time:.2f} seconds")
+    print(f"8) Time to reach goal in environment using PID controller: {pid_end_time - pid_start_time:.2f} seconds")
+    print(f"9) Final position,", car_x, car_y)
+    print(f"10) Distance between goal and final position", np.sqrt((car_x - goal_pos[0])**2 + (car_y - goal_pos[1])**2))
 
 
 if __name__ == "__main__":
