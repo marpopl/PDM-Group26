@@ -205,7 +205,6 @@ class LShapedEnvironment:
             control_points.append(right_position)
 
 
-
         splineDict = {"degree": 1,
                     "controlPoints": control_points,
                     "duration": duration}
@@ -219,9 +218,9 @@ class LShapedEnvironment:
             "movable": False,
             "rgba": [1.0, 0.0, 0.0, 1.0]}
         
-        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
+        dynamic_cylinder_1 = DynamicCylinderObstacle(name="dynamic_cylinder_1",  content_dict=config_dict)
 
-        self.obstacles.append(dynamic_cylinder)
+        self.obstacles.append(dynamic_cylinder_1)
 
 
     def generate_dynamic_obstacle_2(self, position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3):
@@ -263,9 +262,10 @@ class LShapedEnvironment:
             "movable": False,
             "rgba": [1.0, 0.0, 0.0, 1.0]}
         
-        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
 
-        self.obstacles.append(dynamic_cylinder)
+        dynamic_cylinder_2 = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
+
+        self.obstacles.append(dynamic_cylinder_2)
 
     def get_obstacles(self):
         return self.obstacles
