@@ -14,7 +14,7 @@ import os
 
 ## choose which environment you want to run: 
 ## if L_shaped = True, Rectangular must be set to False and vice versa
-L_shaped = True  
+L_shaped = True
 Rectangular = False 
 
 def smooth_path_with_spline(path, num_points=1000):
@@ -253,7 +253,7 @@ def run_prius_with_walls(render=True):
     maximum_distance_threshold = 5.5
     prius_passed_margin = 3.0
     velocity = 1.5
-
+    distance_records=[]
 
     while time_steps < max_steps:
         robot.update_state()
@@ -280,6 +280,8 @@ def run_prius_with_walls(render=True):
             if closest_obstacle:
                 distance = round(min_distance, 4)
                 print(f"Closest obstacle distance: {distance}")
+
+                distance_records.append(distance)
 
                 if state == MOVING:
                     if distance <= stop_distance:
@@ -327,6 +329,7 @@ def run_prius_with_walls(render=True):
 
     pid_end_time = time.time()
     print("Path followed successfully with PID controller!")
+    print(f"Lowest recorded obstacle distance: {min(distance_records):.4f}")
     env.close()
 
     # Metrics
