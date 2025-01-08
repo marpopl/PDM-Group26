@@ -1,16 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from helper_files.urdf_env import UrdfEnv
-from helper_files.motion_primitives import generate_path_with_model, visualize_path, visualize_motion_primitives_grid
+from urdf.urdf_env import UrdfEnv
+from planners.motion_primitives import generate_path_with_model, visualize_path, visualize_motion_primitives_grid
 from urdfenvs.urdf_common.bicycle_model import BicycleModel
-from helper_files.rectangular_environment import RectangularEnvironment
-from helper_files.l_shaped_environment import LShapedEnvironment
+from maps.rectangular_environment import RectangularEnvironment
+from maps.l_shaped_environment import LShapedEnvironment
 from scipy.interpolate import CubicSpline
-from helper_files.global_planner import runner_Astar_grid
-from helper_files.global_planner import calculate_path_length
+from planners.global_planner import runner_Astar_grid
+from planners.global_planner import calculate_path_length
 import pybullet as p
 import time
-
+import os
 
 ## choose which environment you want to run: 
 ## if L_shaped = True, Rectangular must be set to False and vice versa
@@ -30,7 +30,7 @@ def smooth_path_with_spline(path, num_points=1000):
     return [(x_smooth[i], y_smooth[i]) for i in range(num_points)]
 
 
-def visualize_path_with_smoothing(start_pos, goal_pos, original_path, smooth_path):
+def visualize_path_with_smoothing(start_pos, goal_pos, original_path, smooth_path, filename="original_smoothed_path.png"):
     """Visualize the original path and the smoothed path."""
     plt.figure(figsize=(10, 10))
     plt.plot(start_pos[0], start_pos[1], "go", label="Start")
@@ -43,6 +43,8 @@ def visualize_path_with_smoothing(start_pos, goal_pos, original_path, smooth_pat
     plt.legend()
     plt.grid()
     plt.axis("equal")
+    file_path = os.path.join("images", filename)
+    plt.savefig(file_path)
     plt.show()
 
 
@@ -99,6 +101,8 @@ def run_prius_with_walls(render=True):
     max_steering_angle = 0.8727
     max_steering_rate = 2.0  # Max steering rate in radians per second
 
+    velocity = 1.0
+    
     robots = [BicycleModel(
         urdf='prius.urdf',
         mode="vel",
@@ -124,13 +128,12 @@ def run_prius_with_walls(render=True):
         for obstacle in obstacles:
             env.add_obstacle(obstacle)
         print("Environment added")
-        # start_pos = np.array([0.0, 20.0, 0.0]) # 0, 20, 0 for same result as in paper, main objective
+        
+        # Define start and end position
+        start_pos = np.array([0.0, 20.0, 0.0]) # 0, 20, 0 for same result as in paper, main objective
         # goal_pos = np.array([0.0, -25.0, 0.0]) # 0, -25, 0.0 for same result as in paper, main objective
-        # start_pos = np.array([0.0, 20.0, 0.0]) 
-        # goal_pos = np.array([5.0, 10.0, 0.0]) 
-        start_pos = np.array([0.0, 20.0, 0.0]) 
-        goal_pos = np.array([0.0, -25.0, 0.0]) 
-        #goal_pos = np.array([0.0, 20.0, 0.0]) 
+        goal_pos = np.array([5.0, 10.0, 0.0]) 
+
         p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
         p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
@@ -143,9 +146,9 @@ def run_prius_with_walls(render=True):
         LShape = LShapedEnvironment(first_part_lenght=fpl, second_part_lenght=spl, width=w)
         LShape.generate_walls()
         LShape.generate_static_obstacle_1_left(position_offset=22, width_scaling=1.0, length_scaling=1.0) # position_offset=15, width_scaling=1.0, length_scaling=1.0
-        LShape.generate_static_obstacle_1_right() # position_offset=5, width_scaling=1.0, length_scaling=1.0
-        LShape.generate_static_obstacle_2_left() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-        LShape.generate_static_obstacle_2_right() # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+        LShape.generate_static_obstacle_1_right(position_offset=5, width_scaling=1.0, length_scaling=1.0) # position_offset=5, width_scaling=1.0, length_scaling=1.0
+        LShape.generate_static_obstacle_2_left(position_offset=-5, width_scaling=1.0, length_scaling=1.0) # position_offset=-5, width_scaling=1.0, length_scaling=1.0
+        LShape.generate_static_obstacle_2_right(position_offset=-5, width_scaling=1.0, length_scaling=1.0) # position_offset=-5, width_scaling=1.0, length_scaling=1.0
         LShape.generate_dynamic_obstacle_1(position_offset=15, radius=0.5, height=1, frequency=15, speed_scaling=2.5) # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
         LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
         obstacles = LShape.get_obstacles()
@@ -158,7 +161,7 @@ def run_prius_with_walls(render=True):
 
         start_pos = np.array([(w/2)-5,(fpl-w),0]) # 7.5, 35 # use this one as start to obtain same result
         #for L shaped, able to find -10
-        #goal_pos = np.array([-20, -7.5, 0]) original end position, use this one as start to obtain same result as in paper
+        # goal_pos = np.array([-20, -7.5, 0]) # original end position, use this one as start to obtain same result as in paper
         goal_pos = np.array([(w/2), -5 ,0])
         p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
         p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
@@ -192,7 +195,7 @@ def run_prius_with_walls(render=True):
         goal_pos=goal_pos,
         obstacles=obstacles,
         car_size=[2.86, 0.9],
-        velocity=1.0,
+        velocity=velocity,
         dt=1.0,
         max_depth=3
     )

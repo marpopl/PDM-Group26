@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from helper_files.rectangular_environment import RectangularEnvironment
+from maps.rectangular_environment import RectangularEnvironment
 from mpscenes.obstacles.dynamic_cylinder_obstacle import DynamicCylinderObstacle
 from scipy.ndimage import distance_transform_edt
 import heapq

@@ -1,6 +1,7 @@
 import heapq
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 from mpscenes.obstacles.dynamic_cylinder_obstacle import DynamicCylinderObstacle
 
 max_steering_angle = 0.8727
@@ -164,7 +165,7 @@ def generate_path_with_model(model, start_pos, goal_pos, obstacles, car_size, ve
 
     return final_trajectory, final_control_trajectory, all_expanded_states
 
-def visualize_motion_primitives(start_pos, goal_pos, states):
+def visualize_motion_primitives(start_pos, goal_pos, states, filename="motion_primitives_grid.png"):
     plt.figure(figsize=(10, 10))
     plt.plot(start_pos[0], start_pos[1], "go", label="Start")
     plt.plot(goal_pos[0], goal_pos[1], "ro", label="Goal")
@@ -176,9 +177,11 @@ def visualize_motion_primitives(start_pos, goal_pos, states):
     plt.legend()
     plt.grid()
     plt.axis("equal")
+    file_path = os.path.join("images", filename)
+    plt.savefig(file_path)
     plt.show()
 
-def visualize_motion_primitives_grid(start_pos, goal_pos, expanded_states):
+def visualize_motion_primitives_grid(start_pos, goal_pos, expanded_states, filename="motion_primitives.png"):
     plt.figure(figsize=(10, 10))
     plt.title("Motion Primitives Expansion Grid")
     plt.xlabel("X")
@@ -197,9 +200,11 @@ def visualize_motion_primitives_grid(start_pos, goal_pos, expanded_states):
     
     plt.plot(expanded_x, expanded_y, 'bo', markersize=3, label="Motion Primitives")
     plt.legend()
+    file_path = os.path.join("images", filename)
+    plt.savefig(file_path)
     plt.show()
 
-def visualize_path(start_pos, goal_pos, path):
+def visualize_path(start_pos, goal_pos, path, filename="final_path_output.png"):
     plt.figure(figsize=(10, 10))
     plt.plot(start_pos[0], start_pos[1], "go", label="Start")
     plt.plot(goal_pos[0], goal_pos[1], "ro", label="Goal")
@@ -211,4 +216,6 @@ def visualize_path(start_pos, goal_pos, path):
     plt.legend()
     plt.grid()
     plt.axis("equal")
+    file_path = os.path.join("images", filename)
+    plt.savefig(file_path)
     plt.show()
