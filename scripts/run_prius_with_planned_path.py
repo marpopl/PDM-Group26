@@ -14,73 +14,8 @@ import time
 
 ## choose which environment you want to run: 
 ## if L_shaped = True, Rectangular must be set to False and vice versa
-L_shaped = False  
-Rectangular = True 
-
-import heapq
-
-def build_graph_with_closest_neighbor(all_expanded_states):
-    graph = {tuple(state[:3]): [] for state in all_expanded_states}
-
-    for i, state1 in enumerate(all_expanded_states):
-        closest_neighbor = None
-        min_distance = float('inf')
-
-        for j, state2 in enumerate(all_expanded_states):
-            if i != j:  # Exclude self-loops
-                distance = np.linalg.norm(state1[:2] - state2[:2])
-                if distance < min_distance:  # Update closest neighbor
-                    closest_neighbor = tuple(state2[:3])
-                    min_distance = distance
-
-        if closest_neighbor:
-            graph[tuple(state1[:3])].append((closest_neighbor, min_distance))
-
-    return graph
-
-
-def dijkstra_on_closest_graph(all_expanded_states, goal_pos):
-    # Build graph with closest neighbors
-    graph = build_graph_with_closest_neighbor(all_expanded_states)
-
-    # Initialize Dijkstra's structures
-    start_node = min(all_expanded_states, key=lambda state: np.linalg.norm(state[:2] - goal_pos[:2]))
-    goal_node = tuple(goal_pos)
-    pq = [(0, tuple(start_node[:3]))]  # Priority queue as (cost, node)
-    came_from = {}
-    cost_so_far = {tuple(state[:3]): float('inf') for state in all_expanded_states}
-    cost_so_far[tuple(start_node[:3])] = 0
-
-    # Perform Dijkstra's algorithm
-    while pq:
-        current_cost, current_node = heapq.heappop(pq)
-
-        # Stop if we reach the goal
-        if np.linalg.norm(np.array(current_node[:2]) - np.array(goal_pos[:2])) < 0.5:
-            goal_node = current_node
-            break
-
-        # Explore the closest neighbor
-        for neighbor, transition_cost in graph[current_node]:
-            new_cost = current_cost + transition_cost
-            if new_cost < cost_so_far[neighbor]:
-                cost_so_far[neighbor] = new_cost
-                priority = new_cost
-                heapq.heappush(pq, (priority, neighbor))
-                came_from[neighbor] = current_node
-
-    # Reconstruct the shortest path
-    path = []
-    curr = goal_node
-    while curr in came_from:
-        path.append(curr)
-        curr = came_from[curr]
-    path.append(start_node)
-    path.reverse()
-
-    return path
-
-
+L_shaped = True  
+Rectangular = False 
 
 def smooth_path_with_spline(path, num_points=1000):
     """Smooth the given path using cubic spline interpolation."""
@@ -194,7 +129,7 @@ def run_prius_with_walls(render=True):
         # start_pos = np.array([0.0, 20.0, 0.0]) 
         # goal_pos = np.array([5.0, 10.0, 0.0]) 
         start_pos = np.array([0.0, 20.0, 0.0]) 
-        goal_pos = np.array([5.0, 20.0, 0.0]) 
+        goal_pos = np.array([0.0, -25.0, 0.0]) 
         #goal_pos = np.array([0.0, 20.0, 0.0]) 
         p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
         p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
@@ -224,9 +159,9 @@ def run_prius_with_walls(render=True):
         start_pos = np.array([(w/2),(fpl-w)-3,0]) # 7.5, 35 # use this one as start to obtain same result
         #for L shaped, able to find -10
         #goal_pos = np.array([-20, -7.5, 0]) original end position, use this one as start to obtain same result as in paper
-        goal_pos = np.array([(w/2), 20 ,0])
-        # p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
-        # p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
+        goal_pos = np.array([(w/2), -5 ,0])
+        p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
+        p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
 
     robot = robots[0]
@@ -281,11 +216,9 @@ def run_prius_with_walls(render=True):
 
     #visualize
     visualize_motion_primitives_grid(start_pos, goal_pos, all_expanded_states)
+    visualize_path_with_smoothing(start_pos, goal_pos, final_path_orig, final_path)
 
-    path_optional = dijkstra_on_closest_graph(all_expanded_states, goal_pos)
-    print(path_optional)
-    visualize_path(start_pos, goal_pos, path_optional)
-
+    #visualize_path(start_pos, goal_pos, final_path)
 
     env.reset(pos=start_pos)
 
