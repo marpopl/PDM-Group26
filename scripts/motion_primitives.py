@@ -36,22 +36,23 @@ def is_collision_free(state, obstacles, car_size):
                 return False
     return True
 
-def expand_motion_primitives(model, current_pos, obstacles, car_size, velocity=1.0, dt=1.0, simulation_dt=0.01, max_depth=3):
+
+
+def expand_motion_primitives(model, current_pos, obstacles, car_size, velocity=1.0, dt=1.0, simulation_dt=0.01, max_depth=3, goal_pos=None):
     # Allowed steering angle for correct turning radius
     allowed_steering_angle = np.arctan(model._wheel_distance / min_turning_radius)
 
     # Steering angles: 0=straight, +left turn (CCW), -right turn (CW)
-    # facing_direction='x' means theta=0 along +X axis (to the left).
-    steering_angles = [0.0, allowed_steering_angle, -allowed_steering_angle]
+    steering_angles = [0.0, allowed_steering_angle, - allowed_steering_angle]
 
-    open_set = [(np.array(current_pos), 0)]
+    open_set = [(np.array(current_pos), 0, np.linalg.norm(np.array(current_pos[:2]) - np.array(goal_pos[:2])))]
     all_end_states = []
     all_controls = []
     all_trajectories = []
     all_control_trajectories = []
 
     while open_set:
-        current_state, depth = open_set.pop(0)
+        current_state, depth, prev_distance_to_goal = open_set.pop(0)
         if depth >= max_depth:
             continue
 
@@ -65,13 +66,8 @@ def expand_motion_primitives(model, current_pos, obstacles, car_size, velocity=1
             control_trajectory = [control]
 
             for _ in range(steps):
-                # With facing_direction='x' and theta=0 along x-axis:
-                # delta_x = v*cos(theta)*dt
-                # delta_y = v*sin(theta)*dt
-                # If theta=0, car moves along +x (to the left from user's perspective).
                 delta_x = velocity * np.cos(theta) * simulation_dt
                 delta_y = velocity * np.sin(theta) * simulation_dt
-
                 delta_theta = (velocity / model._wheel_distance) * np.tan(steering) * simulation_dt
                 theta += delta_theta
 
@@ -82,14 +78,26 @@ def expand_motion_primitives(model, current_pos, obstacles, car_size, velocity=1
                 trajectory.append(simulated_pos.copy())
                 control_trajectory.append(control)
 
+            # Calculate distance to goal for the new state
+            current_distance_to_goal = np.linalg.norm(simulated_pos[:2] - np.array(goal_pos[:2]))
+
+            # Check if the new state is closer to the goal
+            if current_distance_to_goal >= prev_distance_to_goal:
+                continue  # Terminate expansion for this branch
+
+            # Check collision-free condition
             if is_collision_free(simulated_pos, obstacles, car_size):
                 all_end_states.append(simulated_pos.copy())
                 all_controls.append(control)
                 all_trajectories.append(trajectory)
                 all_control_trajectories.append(control_trajectory)
-                open_set.append((simulated_pos.copy(), depth + 1))
+                open_set.append((simulated_pos.copy(), depth + 1, current_distance_to_goal))
 
     return all_end_states, all_controls, all_trajectories, all_control_trajectories
+
+
+
+
 
 def generate_path_with_model(model, start_pos, goal_pos, obstacles, car_size, velocity=1.0, dt=1.0, max_depth=3):
     start_tuple = tuple(start_pos)
@@ -118,7 +126,7 @@ def generate_path_with_model(model, start_pos, goal_pos, obstacles, car_size, ve
             velocity=velocity,
             dt=dt,
             simulation_dt=0.01,
-            max_depth=max_depth
+            max_depth=max_depth, goal_pos=goal_tuple
         )
 
         for i, end_state in enumerate(end_states):
@@ -155,6 +163,7 @@ def generate_path_with_model(model, start_pos, goal_pos, obstacles, car_size, ve
     all_expanded_states = [state for traj in trajectories.values() for state in traj]
 
     return final_trajectory, final_control_trajectory, all_expanded_states
+
 def visualize_motion_primitives(start_pos, goal_pos, states):
     plt.figure(figsize=(10, 10))
     plt.plot(start_pos[0], start_pos[1], "go", label="Start")
