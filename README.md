@@ -1,4 +1,5 @@
-# PDM Project
+# Obstacle Avoidance With Motion Primitives and A*
+### PDM Project
 ### **Course:** RO47005 Planning and Decision Making  
 ### **Academic Period:** 2024/25 Q2  
 ### **Date:** 13/01/2025  
@@ -13,6 +14,11 @@
   - **5452333** Marcin Poplawski  
 
 ---
+
+
+https://github.com/user-attachments/assets/35a297a5-b55a-447e-ad98-3f7275b300e2
+
+
 
 ## Project Overview  
 
@@ -99,7 +105,7 @@ In `simulation.py` under `# local planner settings` three safety margins are set
    - Navigate to the repository and execute the main script:  
      ```bash
      cd PDM-Group26
-     python3 visualisation/path_planner.py
+     python3 simulation.py
      ```
 
 ---
