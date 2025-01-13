@@ -14,8 +14,8 @@ import os
 
 ## choose which environment you want to run: 
 ## if L_shaped = True, Rectangular must be set to False and vice versa
-L_shaped = False
-Rectangular = True 
+L_shaped = True
+Rectangular = False 
 
 def smooth_path_with_spline(path, num_points=1000):
     """Smooth the given path using cubic spline interpolation."""
@@ -99,7 +99,7 @@ def closest_point_on_path(car_pos, path):
 
 def run_prius_with_walls(render=True):
     max_steering_angle = 0.8727
-    max_steering_rate = 2.0  # Max steering rate in radians per second
+    max_steering_rate = 10.0  # Max steering rate in radians per second
 
     velocity = 1.0
     
@@ -149,8 +149,8 @@ def run_prius_with_walls(render=True):
         LShape.generate_static_obstacle_1_right(position_offset=5, width_scaling=1.0, length_scaling=1.0) # position_offset=5, width_scaling=1.0, length_scaling=1.0
         LShape.generate_static_obstacle_2_left(position_offset=-5, width_scaling=1.0, length_scaling=1.0) # position_offset=-5, width_scaling=1.0, length_scaling=1.0
         LShape.generate_static_obstacle_2_right(position_offset=-5, width_scaling=1.0, length_scaling=1.0) # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-        # LShape.generate_dynamic_obstacle_1(position_offset=15, radius=0.5, height=1, frequency=15, speed_scaling=2.5) # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
-        # LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+        LShape.generate_dynamic_obstacle_1(position_offset=15, radius=0.5, height=1, frequency=15, speed_scaling=2.5) # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+        LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
         obstacles = LShape.get_obstacles()
 
 
@@ -236,7 +236,7 @@ def run_prius_with_walls(render=True):
     # PID Controller setup
     pid_start_time = time.time()
     current_steering_angle = 0.0
-    steering_pid = PIDController(Kp=20.0, Ki=0.7, Kd=0.1, output_limits=(-max_steering_angle, max_steering_angle))
+    steering_pid = PIDController(Kp=10.0, Ki=0.0, Kd=0.3, output_limits=(-max_steering_angle, max_steering_angle))
     dt = env.dt
     time_steps = 0
     max_steps = 10000
