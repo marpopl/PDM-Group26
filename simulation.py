@@ -96,6 +96,56 @@ def closest_point_on_path(car_pos, path):
     distances = [np.linalg.norm(np.array(car_pos[:2]) - np.array(pt[:2])) for pt in path]
     return np.argmin(distances)
 
+def calculate_heading(position, previous_position=None, velocity=None):
+    """
+    Calculate the current heading of the bicycle model.
+    
+    Parameters:
+    - position: Current position as [x, y].
+    - previous_position: Previous position as [x, y]. Required if velocity is not provided.
+    - velocity: Velocity as [vx, vy]. If provided, it overrides position-based calculation.
+    
+    Returns:
+    - Heading angle in radians, in the range [-π, π].
+    """
+    if velocity is not None:
+        vx, vy = velocity
+    elif previous_position is not None:
+        dx = position[0] - previous_position[0]
+        dy = position[1] - previous_position[1]
+        vx, vy = dx, dy
+    else:
+        raise ValueError("Either 'velocity' or 'previous_position' must be provided.")
+
+    heading = np.arctan2(vy, vx)
+    return heading
+
+
+def calculate_next_waypoint(current_position, path, lookahead=2):
+    # Find the closest waypoint ahead of the current position
+    closest_index = None
+    min_distance = float('inf')
+    
+    for i, waypoint in enumerate(path):
+        distance = (waypoint[0] - current_position[0])**2 + (waypoint[1] - current_position[1])**2
+        if distance < min_distance:
+            min_distance = distance
+            closest_index = i
+    
+    # Look ahead by the specified number of waypoints
+    next_index = min(closest_index + lookahead, len(path) - 1)
+    return path[next_index]
+
+
+
+def calculate_control_action(current_position, next_waypoint, current_heading):
+    dx, dy = next_waypoint[0] - current_position[0], next_waypoint[1] - current_position[1]
+    desired_angle = np.arctan2(dy, dx)
+    angle_error = desired_angle - current_heading
+    # Normalize angle error to [-π, π]
+    angle_error = (angle_error + np.pi) % (2 * np.pi) - np.pi
+    action = np.array([2.0, angle_error])  # Constant speed, adjusted steering
+    return action
 
 def run_prius_with_walls(render=True):
     max_steering_angle = 0.8727
@@ -253,70 +303,120 @@ def run_prius_with_walls(render=True):
     stop_distance = 5.0
     minimum_distance_threshold = 4.0
     maximum_distance_threshold = 5.5
-    prius_passed_margin = 3.0
     velocity = 1.5
     distance_records=[]
 
-    while time_steps < max_steps:
-        robot.update_state()
-        car_x, car_y, car_theta = robot.state["joint_state"]["position"]
-        dist_to_goal = np.linalg.norm([car_x - goal_pos[0], car_y - goal_pos[1]])
-        if dist_to_goal < reached_goal_threshold:
-            print("Reached goal!")
+    # Initial position and action for the Prius
+    action = np.array([1.0, 0.0])
+    # ob = env.reset(pos=start_pos)
+    # print(f"Initial observation : {ob}")
+
+    previous_position = [0,0]
+    history = []
+    simulation_time = 0.0
+
+    for i in range(max_steps):
+        ob, *_ = env.step(action)
+        history.append(ob)
+        # robot.update_state()
+
+        current_position = ob['robot_0']['joint_state']['position'][:2]  # Extract x, y from observation
+        # car_x, car_y, car_theta = robot.state["joint_state"]["position"]
+        # car_x, car_y, car_theta = ob['robot_0']["joint_state"]["position"]
+        
+        car_x, car_y = current_position
+        car_theta = robot.state["joint_state"]["position"][2]
+
+        # Check goal reach condition
+        if np.linalg.norm([car_x - goal_pos[0], car_y - goal_pos[1]]) < reached_goal_threshold:
+            print("Goal reached!")
             break
 
-        # Check for dynamic obstacles
+        # dynamic_obstacles = [obs for obs in env.get_obstacles().values() if obs.movable()]
         dynamic_obstacles = []
         if L_shaped:
             dynamic_obstacles = [env.get_obstacles()[9], env.get_obstacles()[10]]
         
         if dynamic_obstacles:
+            # Find the closest dynamic obstacle
             closest_obstacle = None
             min_distance = float('inf')
 
             for obstacle in dynamic_obstacles:
-                obstacle_position = np.array(obstacle.position(t=time_steps * dt).tolist()[:2])
-                distance_to_obstacle = np.linalg.norm(np.array([car_x, car_y]) - obstacle_position)
-
+                obstacle_position = np.array(obstacle.position(t=simulation_time).tolist()[:2])
+                distance_to_obstacle = np.linalg.norm(np.array(current_position) - obstacle_position)
+                
                 if distance_to_obstacle < min_distance:
                     min_distance = distance_to_obstacle
                     closest_obstacle = obstacle
 
+            # Proceed with the closest obstacle
             if closest_obstacle:
+                closest_obstacle_position = closest_obstacle.position(t=simulation_time).tolist()
                 distance = round(min_distance, 4)
-                print(f"Closest obstacle distance: {distance}")
 
-                distance_records.append(distance)
+                print(f"Closest obstacle position: {closest_obstacle_position}, Distance: {distance}")
 
                 if state == MOVING:
                     if distance <= stop_distance:
-                        print("Stopping for obstacle")
+                        print('Stopping for obstacle')
+                        action = np.array([0.0, 0.0])
                         state = WAITING
-                        velocity = 0.0
-                    else:
-                        state = MOVING
 
+                    else:
+                        heading_from_position = calculate_heading(current_position, previous_position=previous_position)
+                        next_waypoint = calculate_next_waypoint(current_position, final_path, lookahead=2)
+                        action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+                        print('Moving normally')
+                        if np.linalg.norm(np.array(current_position) - np.array(final_path[-1])) < 0.5:  # Stop if near the goal
+                            print("Goal reached!")
+                            break
+                        previous_position = current_position
+                        
                 elif state == WAITING:
                     if distance < minimum_distance_threshold:
-                        print("Obstacle too close! Activating reverse gear.")
+                        print(f"Obstacle too close! Distance: {distance}. Activating reverse gear.")
+                        action = np.array([-2.0, 0.0])  # Reverse at constant speed
                         state = REVERSING
-                        velocity = -2.0
-                    elif distance > maximum_distance_threshold:
-                        print("Obstacle cleared. Resuming motion.")
-                        state = MOVING
-                        velocity = 2.5
+                    elif not max_distance_reached:
+                        if distance > maximum_distance_threshold:
+                            max_distance_reached = True
+                        action = np.array([0.0, 0.0])
                     else:
-                        print("Waiting for obstacle to move.")
-                        velocity = 0.0
-
+                        if distance < stop_distance:
+                            print('Waiting for obstacle to clear')
+                            action = np.array([0.0, 0.0])
+                        else:
+                            print('Moving past obstacle')
+                            action = np.array([3.0, 0.0])  # Start moving
+                            state = MOVEPAST
+                
                 elif state == REVERSING:
                     if distance > minimum_distance_threshold:
-                        print("Stopped reversing. Resuming wait.")
+                        print("Obstacle is no longer too close. Stopping reverse gear.")
+                        action = np.array([0.0, 0.0])  # Stop reversing
                         state = WAITING
-                        velocity = 0.0
+                    else:
+                        print(f"Still reversing. Distance: {distance}")
+                        action = np.array([-2.0, 0.0])  # Continue reversing
 
-        # Lock Camera to vehicle
-        camera_target_position = [car_x, car_y, 0.0]
+
+                elif state == MOVEPAST:
+                    if distance > maximum_distance_threshold:
+                        print("Prius has moved past the obstacle. Resuming normal motion.")
+                        state = MOVING
+                    elif distance < minimum_distance_threshold:
+                        print(f"Obstacle too close during MOVEPAST! Activating reverse gear.")
+                        action = np.array([-2.0, 0.0])  # Reverse at constant speed
+                        state = REVERSING
+                    else:
+                        print("Still moving past the obstacle.")
+                        action = np.array([3.0, 0.0])  # Continue moving past
+
+                simulation_time += env.dt
+  
+            # Lock Camera to vehicle
+        camera_target_position = [current_position[0], current_position[1], 0.0]
         env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
 
         closest_idx = closest_point_on_path([car_x, car_y, car_theta], final_path)
@@ -330,11 +430,12 @@ def run_prius_with_walls(render=True):
         current_steering_angle = low_pass_filter(current_steering_angle, desired_steering, 0.6)
 
         env.step(np.array([velocity, current_steering_angle]))
-        time_steps += 1
+        # time_steps += 1
 
     pid_end_time = time.time()
     print("Path followed successfully with PID controller!")
-    print(f"Lowest recorded obstacle distance: {min(distance_records):.4f}")
+    if distance_records:
+        print(f"Lowest recorded obstacle distance: {min(distance_records):.4f}")
     env.close()
 
     # Metrics
@@ -353,3 +454,66 @@ def run_prius_with_walls(render=True):
 
 if __name__ == "__main__":
     run_prius_with_walls(render=True)
+
+
+        # while time_steps < max_steps:
+    #     robot.update_state()
+    #     car_x, car_y, car_theta = robot.state["joint_state"]["position"]
+    #     dist_to_goal = np.linalg.norm([car_x - goal_pos[0], car_y - goal_pos[1]])
+    #     if dist_to_goal < reached_goal_threshold:
+    #         print("Reached goal!")
+    #         break
+
+    #     # Check for dynamic obstacles
+    #     dynamic_obstacles = []
+    #     if L_shaped:
+    #         dynamic_obstacles = [env.get_obstacles()[9], env.get_obstacles()[10]]
+        
+    #     if dynamic_obstacles:
+    #         closest_obstacle = None
+    #         min_distance = float('inf')
+
+    #         for obstacle in dynamic_obstacles:
+    #             obstacle_position = np.array(obstacle.position(t=time_steps * dt).tolist()[:2])
+    #             distance_to_obstacle = np.linalg.norm(np.array([car_x, car_y]) - obstacle_position)
+
+    #             if distance_to_obstacle < min_distance:
+    #                 min_distance = distance_to_obstacle
+    #                 closest_obstacle = obstacle
+
+    #         if closest_obstacle:
+    #             distance = round(min_distance, 4)
+    #             print(f"Closest obstacle distance: {distance}")
+
+    #             distance_records.append(distance)
+
+    #             if state == MOVING:
+    #                 if distance <= stop_distance:
+    #                     print("Stopping for obstacle")
+    #                     state = WAITING
+    #                     velocity = 0.0
+    #                 else:
+    #                     state = MOVING
+
+    #             elif state == WAITING:
+    #                 if distance < minimum_distance_threshold:
+    #                     print("Obstacle too close! Activating reverse gear.")
+    #                     state = REVERSING
+    #                     velocity = -2.0
+    #                 elif distance > maximum_distance_threshold:
+    #                     print("Obstacle cleared. Resuming motion.")
+    #                     state = MOVING
+    #                     velocity = 2.5
+    #                 else:
+    #                     print("Waiting for obstacle to move.")
+    #                     velocity = 0.0
+
+    #             elif state == REVERSING:
+    #                 if distance > minimum_distance_threshold:
+    #                     print("Stopped reversing. Resuming wait.")
+    #                     state = WAITING
+    #                     velocity = 0.0
+
+    #     # Lock Camera to vehicle
+    #     camera_target_position = [car_x, car_y, 0.0]
+    #     env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
