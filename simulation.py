@@ -14,8 +14,8 @@ import os
 
 ## choose which environment you want to run: 
 ## if L_shaped = True, Rectangular must be set to False and vice versa
-L_shaped = True
-Rectangular = False 
+L_shaped = False
+Rectangular = True 
 
 def smooth_path_with_spline(path, num_points=1000):
     """Smooth the given path using cubic spline interpolation."""
@@ -149,7 +149,7 @@ def calculate_control_action(current_position, next_waypoint, current_heading):
 
 def run_prius_with_walls(render=True):
     max_steering_angle = 0.8727
-    max_steering_rate = 10.0  # Max steering rate in radians per second
+    max_steering_rate = 5.0  # Max steering rate in radians per second
 
     velocity = 1.0
     
@@ -286,7 +286,7 @@ def run_prius_with_walls(render=True):
     # PID Controller setup
     pid_start_time = time.time()
     current_steering_angle = 0.0
-    steering_pid = PIDController(Kp=10.0, Ki=0.0, Kd=0.3, output_limits=(-max_steering_angle, max_steering_angle))
+    steering_pid = PIDController(Kp=10.0, Ki=0.1, Kd=0.7, output_limits=(-max_steering_angle, max_steering_angle))
     dt = env.dt
     time_steps = 0
     max_steps = 10000
@@ -315,16 +315,17 @@ def run_prius_with_walls(render=True):
     history = []
     simulation_time = 0.0
 
-    for i in range(max_steps):
-        ob, *_ = env.step(action)
-        history.append(ob)
-        # robot.update_state()
+    while time_steps < max_steps:
+        # ob, *_ = env.step(action)
+        # history.append(ob)
+        robot.update_state()
 
-        current_position = ob['robot_0']['joint_state']['position'][:2]  # Extract x, y from observation
-        # car_x, car_y, car_theta = robot.state["joint_state"]["position"]
-        # car_x, car_y, car_theta = ob['robot_0']["joint_state"]["position"]
+        # current_position = ob['robot_0']["joint_state"]["position"][:2]  # Extract x, y from observation
+        current_position = robot.state["joint_state"]["position"][:2]  # Extract x, y from observation
         
         car_x, car_y = current_position
+
+        # car_theta = ob['robot_0']["joint_state"]["position"][2]
         car_theta = robot.state["joint_state"]["position"][2]
 
         # Check goal reach condition
@@ -343,7 +344,7 @@ def run_prius_with_walls(render=True):
             min_distance = float('inf')
 
             for obstacle in dynamic_obstacles:
-                obstacle_position = np.array(obstacle.position(t=simulation_time).tolist()[:2])
+                obstacle_position = np.array(obstacle.position(t=time_steps*dt).tolist()[:2])
                 distance_to_obstacle = np.linalg.norm(np.array(current_position) - obstacle_position)
                 
                 if distance_to_obstacle < min_distance:
@@ -352,7 +353,7 @@ def run_prius_with_walls(render=True):
 
             # Proceed with the closest obstacle
             if closest_obstacle:
-                closest_obstacle_position = closest_obstacle.position(t=simulation_time).tolist()
+                closest_obstacle_position = closest_obstacle.position(t=time_steps*dt).tolist()
                 distance = round(min_distance, 4)
 
                 print(f"Closest obstacle position: {closest_obstacle_position}, Distance: {distance}")
@@ -364,14 +365,25 @@ def run_prius_with_walls(render=True):
                         state = WAITING
 
                     else:
-                        heading_from_position = calculate_heading(current_position, previous_position=previous_position)
-                        next_waypoint = calculate_next_waypoint(current_position, final_path, lookahead=2)
-                        action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+                        # heading_from_position = calculate_heading(current_position, previous_position=previous_position)
+                        # next_waypoint = calculate_next_waypoint(current_position, final_path, lookahead=2)
+                        # action = calculate_control_action(current_position, next_waypoint, heading_from_position)
+                        closest_idx = closest_point_on_path([car_x, car_y, car_theta], final_path)
+                        target_idx = min(closest_idx + 5, len(final_path) - 1)
+                        target_x, target_y = final_path[target_idx][0], final_path[target_idx][1]
+                        angle_to_target = np.arctan2(target_y - car_y, target_x - car_x)
+                        heading_error = (angle_to_target - car_theta + np.pi) % (2 * np.pi) - np.pi
+
+                        desired_steering = steering_pid(heading_error, dt)
+                        desired_steering = rate_limited_steering(current_steering_angle, desired_steering, max_steering_rate, dt)
+                        current_steering_angle = low_pass_filter(current_steering_angle, desired_steering, 0.6)
+                        action = np.array([velocity, current_steering_angle])
+                        
                         print('Moving normally')
                         if np.linalg.norm(np.array(current_position) - np.array(final_path[-1])) < 0.5:  # Stop if near the goal
                             print("Goal reached!")
                             break
-                        previous_position = current_position
+                        # previous_position = current_position
                         
                 elif state == WAITING:
                     if distance < minimum_distance_threshold:
@@ -413,24 +425,27 @@ def run_prius_with_walls(render=True):
                         print("Still moving past the obstacle.")
                         action = np.array([3.0, 0.0])  # Continue moving past
 
+                env.step(action)
                 simulation_time += env.dt
-  
-            # Lock Camera to vehicle
+
+        else:
+            closest_idx = closest_point_on_path([car_x, car_y, car_theta], final_path)
+            target_idx = min(closest_idx + 5, len(final_path) - 1)
+            target_x, target_y = final_path[target_idx][0], final_path[target_idx][1]
+            angle_to_target = np.arctan2(target_y - car_y, target_x - car_x)
+            heading_error = (angle_to_target - car_theta + np.pi) % (2 * np.pi) - np.pi
+
+            desired_steering = steering_pid(heading_error, dt)
+            desired_steering = rate_limited_steering(current_steering_angle, desired_steering, max_steering_rate, dt)
+            current_steering_angle = low_pass_filter(current_steering_angle, desired_steering, 0.6)
+
+            env.step(np.array([velocity, current_steering_angle]))   
+        
+        # Lock Camera to vehicle
         camera_target_position = [current_position[0], current_position[1], 0.0]
         env.reconfigure_camera(camera_distance, camera_yaw, camera_pitch, camera_target_position)
-
-        closest_idx = closest_point_on_path([car_x, car_y, car_theta], final_path)
-        target_idx = min(closest_idx + 5, len(final_path) - 1)
-        target_x, target_y = final_path[target_idx][0], final_path[target_idx][1]
-        angle_to_target = np.arctan2(target_y - car_y, target_x - car_x)
-        heading_error = (angle_to_target - car_theta + np.pi) % (2 * np.pi) - np.pi
-
-        desired_steering = steering_pid(heading_error, dt)
-        desired_steering = rate_limited_steering(current_steering_angle, desired_steering, max_steering_rate, dt)
-        current_steering_angle = low_pass_filter(current_steering_angle, desired_steering, 0.6)
-
-        env.step(np.array([velocity, current_steering_angle]))
-        # time_steps += 1
+        
+        time_steps += 1
 
     pid_end_time = time.time()
     print("Path followed successfully with PID controller!")
