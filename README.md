@@ -24,13 +24,13 @@ This repository implements a motion planning system for autonomous vehicle, simu
 
 ## Repository Contents  
 
-### Main Executable  
+### Executable  
 - **`simulation.py`**: Combines helper files and provides visualization for the full simulation.  
 
-### Helper Files by Theme  
+### Folders
 
 1. **`maps`** (Simulation Environments):  
-   - **`rectangular_environment.py`**: Straight road setup with wall boundaries, static obstacles, and dynamic obstacles.  
+   - **`rectangular_environment.py`**: Straight road setup with wall boundaries and static obstacles.  
    - **`l_shaped_environment.py`**: Corner road setup with wall boundaries, static obstacles, and dynamic obstacles.  
 
 2. **`planners`** (Planning Algorithms):  
@@ -39,7 +39,7 @@ This repository implements a motion planning system for autonomous vehicle, simu
 
 3. **`urdf`** (Robot and Visualization Files)  
    
-4. **`images`** (Outputs)
+4. **`images`** (Outputs Folder)  
 
 ---
 
@@ -72,17 +72,18 @@ This repository implements a motion planning system for autonomous vehicle, simu
 - Choose the environment by setting `L_shaped` and `Rectangular` booleans in the simulation script.  
 
 ### 2. **Global Settings**:  
-- Edit the function `run_prius_with_walls` in `simulation.py` to modify:  
-  - **Velocity**  
-  - **Start/End points**  
-  - **Obstacle parameters** for both environments.  
-  
-- Edit the `safety_margin` in `motion_primitives.py` to:  
-  - 1.0 for rectangular environment  
-  - 0.5 for L_shaped environment  
+By default Test D is executed for rectangular environment, and Test I for L-shaped environment.  
+
+To change between different tests you need to uncomment relevant lines in `simulation.py` (lines 132-161 for rectangular and lines 188-217 for L-shaped) and, if needed, modify the `safety_margin` (default to 1.0) in `planners/motion_primitives.py` (line 13).  
+
+The velocity is set at the beginning of `run_prius_with_walls` function in `simulation.py` (line 104). It is set to 1.0 by default, although can be changed (if too large velocity is selected the path will not be created).  
+
+PID control gains are defined at line 290 of `simulation.py` and can be adjusted.  
+
+Optionally, obstacle parameters for rectangular (lines 124-125) and L-shaped (lines 174-179) environments can be edited in the function `run_prius_with_walls` in `simulation.py`, with detailed descriptions of parameter meaning in `maps/rectangular_environment.py` and `maps/l_shaped_environment.py`.  
 
 ### 3. **Local Planner Settings**:  
-- Adjust safety margins or local velocity under the `# local planner settings` section in the script.  
+In `simulation.py` under `# local planner settings` three safety margins are set (lines 304-306) and are relevant for Tests G-L in L-shaped environment with dynamic obstacles. These margins work by default for Test I and can be adjusted.  
 
 ---
 
@@ -106,6 +107,7 @@ This repository implements a motion planning system for autonomous vehicle, simu
 ## Possible Issues  
 
 - **Virtual Environment Activation**: Ensure `gym_envs_urdf` is correctly installed and sourced before running the simulation.  
-- **Dependency Issues**: Check all required Python packages (e.g., `matplotlib`, `numpy`) are installed using `pip install -r requirements.txt`.  
 - **Parameter Configuration**: Ensure parameters in `run_prius_with_walls` are properly set for the chosen environment.  
+- **Too high velocity**: Line 154 of `motion_primitives.py` will return a KeyError if the selected velocity is too high. Try setting velocity to default value of 1.0.  
+
 

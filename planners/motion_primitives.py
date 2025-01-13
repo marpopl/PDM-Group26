@@ -10,7 +10,7 @@ min_turning_radius = 0.72
 def is_collision_free(state, obstacles, car_size):
     car_x, car_y, _ = state
     car_length, car_width = car_size
-    safety_margin = 0.5
+    safety_margin = 1.0
 
     # Adjust car boundaries with safety margin
     car_min_x = car_x - car_length / 2 - safety_margin
