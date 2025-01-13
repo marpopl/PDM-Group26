@@ -37,7 +37,7 @@ This repository implements a motion planning system for autonomous vehicle, simu
    - **`global_planner.py`**: Implements pathfinding with A* algorithm, heatmap-based centering, and polynomial smoothing.  
    - **`motion_primitives.py`**: Framework for generating smooth, collision-free trajectories and visualizing them.  
 
-3. **`urdf`** (Robot and Visualization Files):  
+3. **`urdf`** (Robot and Visualization Files)  
    
 4. **`images`** (Outputs)
 
@@ -72,10 +72,14 @@ This repository implements a motion planning system for autonomous vehicle, simu
 - Choose the environment by setting `L_shaped` and `Rectangular` booleans in the simulation script.  
 
 ### 2. **Global Settings**:  
-- Edit the function `run_prius_with_walls` to modify:  
+- Edit the function `run_prius_with_walls` in `simulation.py` to modify:  
   - **Velocity**  
   - **Start/End points**  
   - **Obstacle parameters** for both environments.  
+  
+- Edit the `safety_margin` in `motion_primitives.py` to:  
+  - 1.0 for rectangular environment  
+  - 0.5 for L_shaped environment  
 
 ### 3. **Local Planner Settings**:  
 - Adjust safety margins or local velocity under the `# local planner settings` section in the script.  

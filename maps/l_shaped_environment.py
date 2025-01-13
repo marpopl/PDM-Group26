@@ -60,6 +60,25 @@ class LShapedEnvironment:
                     'height': self.wall_height,
                     'length': self.wall_thickness,
                 }},
+
+            {
+                'type': 'box',
+                'geometry': {
+                    'position': [7.5, 35, self.z_position],
+                    'width': self.wall_thickness,  # closing wall start 
+                    'height': self.wall_height,
+                    'length':  15,
+                }},
+            
+            {
+                'type': 'box',
+                'geometry': {
+                    'position': [-25, -7.5, self.z_position],
+                    'width': 15,  # Closing wall goal
+                    'height': self.wall_height,
+                    'length':  self.wall_thickness,
+                }},
+
             ]
     
         # add walls to obstacles list
@@ -205,6 +224,7 @@ class LShapedEnvironment:
             control_points.append(right_position)
 
 
+
         splineDict = {"degree": 1,
                     "controlPoints": control_points,
                     "duration": duration}
@@ -218,9 +238,9 @@ class LShapedEnvironment:
             "movable": False,
             "rgba": [1.0, 0.0, 0.0, 1.0]}
         
-        dynamic_cylinder_1 = DynamicCylinderObstacle(name="dynamic_cylinder_1",  content_dict=config_dict)
+        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
 
-        self.obstacles.append(dynamic_cylinder_1)
+        self.obstacles.append(dynamic_cylinder)
 
 
     def generate_dynamic_obstacle_2(self, position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3):
@@ -262,10 +282,9 @@ class LShapedEnvironment:
             "movable": False,
             "rgba": [1.0, 0.0, 0.0, 1.0]}
         
+        dynamic_cylinder = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
 
-        dynamic_cylinder_2 = DynamicCylinderObstacle(name="dynamic_cylinder_2",  content_dict=config_dict)
-
-        self.obstacles.append(dynamic_cylinder_2)
+        self.obstacles.append(dynamic_cylinder)
 
     def get_obstacles(self):
         return self.obstacles

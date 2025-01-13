@@ -14,8 +14,8 @@ import os
 
 ## choose which environment you want to run: 
 ## if L_shaped = True, Rectangular must be set to False and vice versa
-L_shaped = True
-Rectangular = False 
+L_shaped = False
+Rectangular = True 
 
 def smooth_path_with_spline(path, num_points=1000):
     """Smooth the given path using cubic spline interpolation."""
@@ -131,8 +131,8 @@ def run_prius_with_walls(render=True):
         
         # Define start and end position
         start_pos = np.array([0.0, 20.0, 0.0]) # 0, 20, 0 for same result as in paper, main objective
-        # goal_pos = np.array([0.0, -25.0, 0.0]) # 0, -25, 0.0 for same result as in paper, main objective
-        goal_pos = np.array([5.0, 10.0, 0.0]) 
+        goal_pos = np.array([0.0, -25.0, 0.0]) # 0, -25, 0.0 for same result as in paper, main objective
+        # goal_pos = np.array([5.0, 10.0, 0.0]) 
 
         p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
         p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
@@ -149,8 +149,8 @@ def run_prius_with_walls(render=True):
         LShape.generate_static_obstacle_1_right(position_offset=5, width_scaling=1.0, length_scaling=1.0) # position_offset=5, width_scaling=1.0, length_scaling=1.0
         LShape.generate_static_obstacle_2_left(position_offset=-5, width_scaling=1.0, length_scaling=1.0) # position_offset=-5, width_scaling=1.0, length_scaling=1.0
         LShape.generate_static_obstacle_2_right(position_offset=-5, width_scaling=1.0, length_scaling=1.0) # position_offset=-5, width_scaling=1.0, length_scaling=1.0
-        LShape.generate_dynamic_obstacle_1(position_offset=15, radius=0.5, height=1, frequency=15, speed_scaling=2.5) # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
-        LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
+        # LShape.generate_dynamic_obstacle_1(position_offset=15, radius=0.5, height=1, frequency=15, speed_scaling=2.5) # position_offset=15, radius=0.5, height=1, frequency=3, speed_scaling=3
+        # LShape.generate_dynamic_obstacle_2(position_offset=-10, radius=0.5, height=1, frequency=10, speed_scaling=0.33) # position_offset=-10, radius=0.5, height=1, frequency=3, speed_scaling=3
         obstacles = LShape.get_obstacles()
 
 
@@ -159,10 +159,12 @@ def run_prius_with_walls(render=True):
             env.add_obstacle(obstacle)
         print("Environment added")
 
-        start_pos = np.array([(w/2)-5,(fpl-w),0]) # 7.5, 35 # use this one as start to obtain same result
+        # start_pos = np.array([(w/2)-5,(fpl-w),0]) # 7.5, 35 # use this one as start to obtain same result
         #for L shaped, able to find -10
-        # goal_pos = np.array([-20, -7.5, 0]) # original end position, use this one as start to obtain same result as in paper
-        goal_pos = np.array([(w/2), -5 ,0])
+        start_pos = np.array([2.5, 30, 0])
+
+        goal_pos = np.array([-12, -7.5, 0]) # original end position, use this one as start to obtain same result as in paper
+        # goal_pos = np.array([(w/2), -5 ,0])
         p.addUserDebugText("Start", [start_pos[0], start_pos[1], 0.5], textColorRGB=[0, 1, 0], textSize=1.5)
         p.addUserDebugText("Goal", [goal_pos[0], goal_pos[1], 0.5], textColorRGB=[1, 0, 0], textSize=1.5)
 
@@ -234,7 +236,7 @@ def run_prius_with_walls(render=True):
     # PID Controller setup
     pid_start_time = time.time()
     current_steering_angle = 0.0
-    steering_pid = PIDController(Kp=1.0, Ki=0.0, Kd=0.1, output_limits=(-max_steering_angle, max_steering_angle))
+    steering_pid = PIDController(Kp=20.0, Ki=0.7, Kd=0.1, output_limits=(-max_steering_angle, max_steering_angle))
     dt = env.dt
     time_steps = 0
     max_steps = 10000
@@ -264,7 +266,10 @@ def run_prius_with_walls(render=True):
             break
 
         # Check for dynamic obstacles
-        dynamic_obstacles = [env.get_obstacles()[9], env.get_obstacles()[10]]
+        dynamic_obstacles = []
+        if L_shaped:
+            dynamic_obstacles = [env.get_obstacles()[9], env.get_obstacles()[10]]
+        
         if dynamic_obstacles:
             closest_obstacle = None
             min_distance = float('inf')
